@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.cryptography.frontend.controller.LoginController"
+      spacing="10" alignment="CENTER" prefWidth="300" prefHeight="200">
+    <Label text="Введите ID пользователя:"/>
+    <TextField fx:id="userId" promptText="например, user1"/>
+    <Button fx:id="loginButton" text="Войти"/>
+</VBox>

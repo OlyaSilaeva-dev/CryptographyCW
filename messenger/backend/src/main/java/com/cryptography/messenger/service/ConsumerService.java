@@ -27,7 +27,7 @@ public class ConsumerService {
         ChatMessage message = consumerRecord.value();
         log.info("Получено из Кафка (чат) {}", message);;
 
-        String destination = "/user/" + message.getRecipientId() + "/queue/messages";
+        String destination = "/topic/user." + message.getRecipientId();
 
         messagingTemplate.convertAndSend(destination, message);
         log.info("Отправлено через WebSocket:, {}", destination);
@@ -38,7 +38,7 @@ public class ConsumerService {
         ChatMessage message = consumerRecord.value();
         log.info("Получено из Кафка (обмен ключами) {}", message);
 
-        String destination = "/user/" + message.getRecipientId() + "/queue/key-exchange";
+        String destination = "/topic/user." + message.getRecipientId() + "/key-exchange";
 
         messagingTemplate.convertAndSend(destination, message);
         log.info("Отправлено через WebSocket (ключи):, {}", destination);

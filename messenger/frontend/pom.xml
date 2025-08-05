@@ -9,7 +9,9 @@
     <version>1.0-SNAPSHOT</version>
     <name>frontend</name>
 
+
     <properties>
+        <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.10.2</junit.version>
     </properties>
@@ -93,7 +95,36 @@
             <artifactId>jackson-databind</artifactId>
             <version>2.17.1</version> <!-- актуальная на 2025 год -->
         </dependency>
+        <dependency>
+            <groupId>jakarta.websocket</groupId>
+            <artifactId>jakarta.websocket-api</artifactId>
+            <version>2.1.1</version>
+        </dependency>
 
+        <!-- Реализация WebSocket клиента -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webflux</artifactId>
+            <version>6.1.4</version>
+        </dependency>
+
+        <!-- Минимальная реализация SLF4J (пустая) -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>2.0.12</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.glassfish.tyrus.bundles</groupId>
+            <artifactId>tyrus-standalone-client</artifactId>
+            <version>2.1.3</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>2.17.1</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -116,7 +147,7 @@
                         <!-- Default configuration for running with: mvn clean javafx:run -->
                         <id>default-cli</id>
                         <configuration>
-                            <mainClass>com.cryptography.frontend/com.cryptography.frontend.Мусор.HelloApplication</mainClass>
+                            <mainClass>com.cryptography.frontend/com.cryptography.frontend.ChatApp</mainClass>
                             <launcher>app</launcher>
                             <jlinkZipName>app</jlinkZipName>
                             <jlinkImageName>app</jlinkImageName>

@@ -17,7 +17,7 @@ public class MessageController {
     }
 
 //    @GetMapping
-//    public ResponseEntity<Iterable<ChatMessage>> getChatMessages() {
+//    public ResponseEntity<Iterable<ChatMessage>> getChatMessages() { //история сообщений
 //
 //    }
 
