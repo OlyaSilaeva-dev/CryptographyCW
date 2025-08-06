@@ -3,10 +3,12 @@ package com.cryptography.frontend.entity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
 @AllArgsConstructor
+@NoArgsConstructor
 public class ChatMessage {
     private String chatId;
     private String senderId;
