@@ -42,6 +42,5 @@ public class ConsumerService {
 
         messagingTemplate.convertAndSend(destination, message);
         log.info("Отправлено через WebSocket (ключи):, {}", destination);
-
     }
 }

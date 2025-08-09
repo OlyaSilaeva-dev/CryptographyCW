@@ -108,11 +108,18 @@
             <version>6.1.4</version>
         </dependency>
 
-        <!-- Минимальная реализация SLF4J (пустая) -->
+        <!-- SLF4J API -->
         <dependency>
             <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <version>2.0.12</version>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.16</version>
+        </dependency>
+
+        <!-- Logback implementation -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.5.6</version>
         </dependency>
 
         <dependency>

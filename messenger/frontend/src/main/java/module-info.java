@@ -5,6 +5,8 @@ module com.cryptography.frontend {
     requires com.dlsc.formsfx;
     requires org.kordamp.ikonli.javafx;
     requires static lombok;
+    requires org.slf4j;
+    requires ch.qos.logback.classic;
 
     requires spring.web;
     requires spring.core;
@@ -17,6 +19,7 @@ module com.cryptography.frontend {
     requires spring.context;
 
 
+    exports com.cryptography.frontend.dto to com.fasterxml.jackson.databind;
     opens com.cryptography.frontend to javafx.fxml;
     exports com.cryptography.frontend;
     exports com.cryptography.frontend.entity;

@@ -18,7 +18,7 @@ public class StompClient {
      * @param userId ID текущего пользователя
      * @param onMessage функция, вызываемая при получении нового сообщения
      */
-    public static void connect(String userId, Consumer<ChatMessage> onMessage) {
+    public static void connect(String userId, Consumer<ChatMessage> onMessage, Consumer<ChatMessage> onPublicKeyReceived) {
         String url = "ws://localhost:8080/ws";
 
         WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
@@ -34,7 +34,7 @@ public class StompClient {
             public void afterConnected(StompSession session, StompHeaders connectedHeaders) {
                 stompSession = session;
                 System.out.println("Connected to server");
-                onConnected(userId, stompSession, onMessage);
+                onConnected(userId, stompSession, onMessage, onPublicKeyReceived);
             }
 
             @Override
@@ -44,7 +44,7 @@ public class StompClient {
         });
     }
 
-    private static void onConnected(String userId, StompSession stompSession, Consumer<ChatMessage> onMessage) {
+    private static void onConnected(String userId, StompSession stompSession, Consumer<ChatMessage> onMessage, Consumer<ChatMessage> onPublicKeyReceived) {
         stompSession.subscribe("/topic/user." + userId, new StompFrameHandler() {
             @Override
             public Type getPayloadType(StompHeaders headers) {
@@ -67,7 +67,9 @@ public class StompClient {
 
             @Override
             public void handleFrame(StompHeaders headers, Object payload) {
+                ChatMessage message = (ChatMessage) payload;
                 System.out.println("Received message (key): " + payload.toString());
+                onPublicKeyReceived.accept(message);
             }
         });
     }
