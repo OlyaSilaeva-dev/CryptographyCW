@@ -78,10 +78,7 @@ public class MessageSender {
 
         if (response.statusCode() == 200) {
             byte[] body = response.body();
-            if (body != null && "null".equals(new String(body, StandardCharsets.UTF_8))) {
-                return body;
-            }
-            return null;
+            return body;
         } else {
             throw new RuntimeException("Ошибка запроса: " + response.statusCode());
         }

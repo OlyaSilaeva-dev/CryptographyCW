@@ -12,8 +12,18 @@ public class DiffieHellman {
     public DiffieHellman(BigInteger p, BigInteger g) {
         this.p = p;
         this.g = g;
-        this.privateKey = new BigInteger(65537, new SecureRandom());
+        this.privateKey = generatePrivateKey(p); // 1 < privateKey < p-1
         this.publicKey = g.modPow(privateKey, p);
+    }
+
+    private BigInteger generatePrivateKey(BigInteger p) {
+        SecureRandom random = new SecureRandom();
+        BigInteger max = p.subtract(BigInteger.valueOf(2));
+        BigInteger privateKey;
+        do {
+            privateKey = new BigInteger(p.bitLength(), random);
+        } while (privateKey.compareTo(BigInteger.ONE) < 0 || privateKey.compareTo(max) > 0);
+        return privateKey;
     }
 
     public BigInteger getPublicKey() {
@@ -21,11 +31,6 @@ public class DiffieHellman {
     }
 
     public BigInteger computeSharedSecret(BigInteger receivedPublicKey) {
-        return receivedPublicKey.modPow(publicKey, p);
-    }
-
-    public static BigInteger generateSafePrime() {
-        SecureRandom rand = new SecureRandom();
-        return BigInteger.probablePrime(512, rand);
+        return receivedPublicKey.modPow(privateKey, p);
     }
 }

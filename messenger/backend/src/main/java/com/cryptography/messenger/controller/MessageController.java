@@ -3,11 +3,13 @@ package com.cryptography.messenger.controller;
 import com.cryptography.messenger.dto.KeyParams;
 import com.cryptography.messenger.enity.ChatMessage;
 import com.cryptography.messenger.service.ProducerService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/messages")
 public class MessageController {
@@ -20,9 +22,10 @@ public class MessageController {
             "29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
             "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
             "E485B576625E7EC6F44C42E9A63A3620FFFFFFFFFFFFFFFF";
+
     public static final String DEFAULT_G = "2";
 
-    public MessageController(ProducerService producerService,@Qualifier("redisTemplate") RedisTemplate<String, byte[]> redis) {
+    public MessageController(ProducerService producerService, RedisTemplate<String, byte[]> redis) {
         this.producer = producerService;
         this.redis = redis;
     }
@@ -40,8 +43,7 @@ public class MessageController {
 
     @PostMapping("/save-public-key")
     public ResponseEntity<Void> sendPublicKey(@RequestBody ChatMessage message) {
-        String[] ids = sortIds(message.getSenderId(), message.getRecipientId());
-        String keyPrefix = "dh:" + ids[0] + ":" + ids[1];
+        String keyPrefix = "dh:" + message.getSenderId() + ":" + message.getRecipientId();
         redis.opsForValue().set(keyPrefix + ":public-key", message.getMessage());
         producer.send(CHAT_KEY_EXCHANGE_TOPIC, message);
         return ResponseEntity.ok().build();
@@ -56,17 +58,12 @@ public class MessageController {
     @GetMapping("/get-public-key")
     public ResponseEntity<byte[]> getPublicKey(@RequestParam String senderId,
                                                @RequestParam String recipientId) {
-        String[] ids = sortIds(senderId, recipientId);
-        String keyPrefix = "dh:" + ids[0] + ":" + ids[1];
+        String keyPrefix = "dh:" + recipientId + ":" + senderId;
         byte[] publicKey = redis.opsForValue().get(keyPrefix + ":public-key");
+        log.info("get public key: {}", publicKey);
         if (publicKey == null) {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(publicKey);
-    }
-
-
-    private String[] sortIds(String a, String b) {
-        return a.compareTo(b) < 0 ? new String[]{a, b} : new String[]{b, a};
     }
 }

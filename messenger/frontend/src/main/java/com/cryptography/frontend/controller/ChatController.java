@@ -23,10 +23,14 @@ import java.util.*;
 
 @Slf4j
 public class ChatController {
-    @FXML private ListView<String> contactsView;
-    @FXML private ListView<String> listView;
-    @FXML private TextField messageField;
-    @FXML private Button sendButton;
+    @FXML
+    private ListView<String> contactsView;
+    @FXML
+    private ListView<String> listView;
+    @FXML
+    private TextField messageField;
+    @FXML
+    private Button sendButton;
 
     private DiffieHellman diffieHellman;
     private String senderId;
@@ -34,6 +38,8 @@ public class ChatController {
 
     private SymmetricCipherContext symmetricCipherContext;
     private final Map<String, List<String>> messageHistory = new HashMap<>();
+
+    /// Map<recipient, key>
     private final Map<String, BigInteger> sharedSecrets = new HashMap<>();
 
     private boolean isSharedSecretEstablished() {
@@ -44,10 +50,16 @@ public class ChatController {
 
     private void onMessageReceived(ChatMessage msg) {
         Platform.runLater(() -> {
+            if (!isSharedSecretEstablished()) {
+                log.warn("Shared secret established");
+                return;
+            }
+
             String from = msg.getSenderId();
             String contact = from.equals(senderId) ? msg.getRecipientId() : from;
 
             byte[] decryptedBytes = symmetricCipherContext.decrypt(msg.getMessage());
+//            byte[] decryptedBytes = msg.getMessage();
             String displayText = from + ": " + new String(decryptedBytes, StandardCharsets.UTF_8);
             appendMessage(contact, displayText);
 
@@ -64,26 +76,30 @@ public class ChatController {
 
     private void onPublicKeyReceived(ChatMessage msg) {
         Platform.runLater(() -> {
-           String contactId = msg.getSenderId();
-           byte[] publicKey = msg.getMessage();
+            String from = msg.getSenderId();
+            byte[] publicKey = msg.getMessage();
 
-            if (diffieHellman != null && contactId.equals(recipientId)) {
-               BigInteger receivedPublicKey = new BigInteger(1, publicKey);
-               BigInteger sharedSecret = diffieHellman.computeSharedSecret(receivedPublicKey);
+            if (diffieHellman != null && from.equals(recipientId)) {
+                try {
+                    BigInteger receivedPublicKey = new BigInteger(1, publicKey);
+                    BigInteger sharedSecret = diffieHellman.computeSharedSecret(receivedPublicKey);
 
-               log.debug("Shared secret with " + contactId);
-               sharedSecrets.put(contactId, sharedSecret);
-           }
+                    log.debug("Shared secret with {}, shared secret {}", from, sharedSecret);
+                    sharedSecrets.put(from, sharedSecret);
 
-            symmetricCipherContext = new SymmetricCipherContext(
-                    new MacGuffin(),
-                    sharedSecrets.get(recipientId).toByteArray(),
-                    EncryptionMode.ECB,
-                    PaddingMode.PKCS7,
-                    new byte[0]
-            );
+                    symmetricCipherContext = new SymmetricCipherContext(
+                            new MacGuffin(),
+                            sharedSecrets.get(recipientId).toByteArray(),
+                            EncryptionMode.ECB,
+                            PaddingMode.PKCS7,
+                            new byte[0]
+                    );
 
-            updateMessageList();
+                    updateMessageList();
+                } catch (Exception e) {
+                    log.error(e.getMessage());
+                }
+            }
         });
     }
 
@@ -101,13 +117,13 @@ public class ChatController {
         listView.getItems().addAll(messageHistory.getOrDefault(recipientId, List.of()));
     }
 
-    public void init(String senderId) {
-        this.senderId = senderId;
+    public void init(String myId) {
+        this.senderId = myId;
 
-        StompClient.connect(senderId, this::onMessageReceived, this::onPublicKeyReceived);
+        StompClient.connect(myId, this::onMessageReceived, this::onPublicKeyReceived);
 
         List<String> users = new ArrayList<>(List.of("user1", "user2", "user3", "user4"));
-        users.remove(senderId);
+        users.remove(myId);
         contactsView.getItems().addAll(users);
 
         contactsView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
@@ -121,7 +137,7 @@ public class ChatController {
 
                 KeyParams keyParams = new KeyParams();
                 try {
-                    keyParams = MessageSender.getKeyParams(senderId, recipientId);
+                    keyParams = MessageSender.getKeyParams(myId, recipientId);
                     log.debug("keyParams: {}", keyParams);
                 } catch (Exception e) {
                     log.error(e.getMessage());
@@ -135,42 +151,38 @@ public class ChatController {
                     try {
                         MessageSender.sendPublicKeyMessage(
                                 ChatMessage.builder()
-                                        .senderId(senderId)
+                                        .senderId(myId)
                                         .recipientId(recipientId)
                                         .message(bigIntToUnsignedBytes(diffieHellman.getPublicKey()))
                                         .timestamp(LocalDateTime.now().toString())
                                         .build());
-                        log.debug("User {} send public key to {}", senderId, recipientId);
+                        log.debug("User {} send public key to {}", myId, recipientId);
                     } catch (Exception e) {
                         log.error(e.getMessage());
                     }
 
-                    javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<>() {
-                        @Override
-                        protected Void call() throws Exception {
-                            byte[] receivedPublicKey = MessageSender.getPublicKey(senderId, recipientId);
-                            if (receivedPublicKey != null) {
-                                BigInteger sharedSecret = diffieHellman.computeSharedSecret(new BigInteger(1, receivedPublicKey));
-                                sharedSecrets.put(recipientId, sharedSecret);
-                                log.debug("Shared secret with {}", recipientId);
+                    byte[] receivedPublicKey = null;
+                    try {
+                        receivedPublicKey = MessageSender.getPublicKey(myId, recipientId);
+                        log.debug("receivedPublicKey: {}", receivedPublicKey);
+                    } catch (Exception e) {
+                        log.error(e.getMessage());
+                    }
 
-                                // Создаем symmetricCipherContext в UI-потоке
-                                Platform.runLater(() -> {
-                                    symmetricCipherContext = new SymmetricCipherContext(
-                                            new MacGuffin(),
-                                            sharedSecret.toByteArray(),
-                                            EncryptionMode.ECB,
-                                            PaddingMode.PKCS7,
-                                            new byte[0]
-                                    );
-                                    updateMessageList();
-                                });
-                            }
-                            return null;
-                        }
-                    };
-                    new Thread(task).start();
+                    if (receivedPublicKey != null) {
+                        BigInteger sharedSecret = diffieHellman.computeSharedSecret(new BigInteger(1, receivedPublicKey));
+                        sharedSecrets.put(recipientId, sharedSecret);
+                        log.debug("Shared secret with (by redis) {}, shared secret {}", recipientId, sharedSecret);
 
+                        symmetricCipherContext = new SymmetricCipherContext(
+                                new MacGuffin(),
+                                sharedSecret.toByteArray(),
+                                EncryptionMode.ECB,
+                                PaddingMode.PKCS7,
+                                new byte[0]
+                        );
+                        updateMessageList();
+                    }
                 }
             }
         });
@@ -185,9 +197,11 @@ public class ChatController {
             }
 
             ChatMessage msg = ChatMessage.builder()
-                    .senderId(senderId)
+                    .senderId(myId)
                     .recipientId(recipientId)
-                    .message(symmetricCipherContext.encrypt(text.getBytes()))
+                    .message(
+                            symmetricCipherContext.encrypt(text.getBytes())
+                    )
                     .timestamp(LocalDateTime.now().toString())
                     .build();
 
