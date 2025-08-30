@@ -14,6 +14,8 @@ public class ChatMessage {
     private String senderId;
     private String recipientId;
     private byte[] message;
+    private String fileName;
+    private boolean isFile;
     private MessageStatus status;
     private String timestamp;
 }

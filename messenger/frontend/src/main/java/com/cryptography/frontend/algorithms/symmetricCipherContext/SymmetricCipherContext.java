@@ -221,7 +221,7 @@ public class SymmetricCipherContext {
             System.arraycopy(ciphertext, i * blockSize, cipherBlocks[i], 0, blockSize);
         }
 
-        log.info(Arrays.deepToString(cipherBlocks));
+//        log.info(Arrays.deepToString(cipherBlocks));
         byte[] result = switch (encryptionMode) {
             case ECB -> ECBDecrypt(cipherBlocks, blockSize, blockCnt);
             case CBC -> CBCDecrypt(cipherBlocks, blockSize, blockCnt);
@@ -240,9 +240,9 @@ public class SymmetricCipherContext {
         switch (paddingMode) {
             case PKCS7, ANSI_X923, ISO_10126 -> {
                 padLength = data[data.length - 1] & 0xFF;
-                if (padLength == 0 || padLength > cipher.getBlockSize()) {
-                    throw new IllegalArgumentException("Invalid padding length: " + padLength);
-                }
+//                if (padLength == 0 || padLength > cipher.getBlockSize()) {
+//                    throw new IllegalArgumentException("Invalid padding length: " + padLength);
+//                }
                 return Arrays.copyOfRange(data, 0, data.length - padLength);
             }
             case Zeros -> {

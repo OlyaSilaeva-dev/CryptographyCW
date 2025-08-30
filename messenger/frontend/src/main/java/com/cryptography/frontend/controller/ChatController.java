@@ -14,10 +14,15 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -31,6 +36,12 @@ public class ChatController {
     private TextField messageField;
     @FXML
     private Button sendButton;
+    @FXML
+    private Button attachButton;
+
+    private File attachFile;
+    private String attachFileName;
+    private byte[] encryptedFileData;
 
     private DiffieHellman diffieHellman;
     private String senderId;
@@ -50,28 +61,77 @@ public class ChatController {
 
     private void onMessageReceived(ChatMessage msg) {
         Platform.runLater(() -> {
-            if (!isSharedSecretEstablished()) {
-                log.warn("Shared secret established");
-                return;
-            }
-
             String from = msg.getSenderId();
             String contact = from.equals(senderId) ? msg.getRecipientId() : from;
 
-            byte[] decryptedBytes = symmetricCipherContext.decrypt(msg.getMessage());
-//            byte[] decryptedBytes = msg.getMessage();
-            String displayText = from + ": " + new String(decryptedBytes, StandardCharsets.UTF_8);
-            appendMessage(contact, displayText);
-
+            // Добавляем контакт в список, если его нет
             if (!contactsView.getItems().contains(contact)) {
                 contactsView.getItems().add(contact);
             }
 
-            if (contact.equals(recipientId)) {
-                updateMessageList();
+            // Проверяем, есть ли общий секрет для этого отправителя
+            if (!sharedSecrets.containsKey(from)) {
+                log.warn("Нет общего секрета для сообщения от {}", from);
+                appendMessage(contact, from + ": [сообщение не может быть расшифровано - нет общего ключа]");
+                return;
             }
-            log.debug("Received message: {}", msg);
+
+            try {
+                // Создаем контекст шифрования для конкретного отправителя
+                SymmetricCipherContext senderCipherContext = new SymmetricCipherContext(
+                        new MacGuffin(),
+                        sharedSecrets.get(from).toByteArray(),
+                        EncryptionMode.ECB,
+                        PaddingMode.PKCS7,
+                        new byte[0]
+                );
+
+                String displayText;
+
+                if (msg.isFile()) {
+                    byte[] decryptedFileData = senderCipherContext.decrypt(msg.getMessage());
+                    displayText = from + ": отправил(а) файл " + msg.getFileName();
+
+                    if (contact.equals(recipientId)) {
+                        saveReceivedFile(msg.getFileName(), decryptedFileData);
+                    } else {
+                        appendMessage(contact, from + ": отправил(а) файл " + msg.getFileName() + " (выберите чат чтобы сохранить)");
+                    }
+                } else {
+                    byte[] decryptedBytes = senderCipherContext.decrypt(msg.getMessage());
+                    displayText = from + ": " + new String(decryptedBytes, StandardCharsets.UTF_8);
+                }
+
+                appendMessage(contact, displayText);
+
+                if (contact.equals(recipientId)) {
+                    updateMessageList();
+                }
+
+                log.debug("Получено сообщение от {}: {}", from, msg);
+
+            } catch (Exception e) {
+                log.error("Ошибка дешифрования сообщения от {}: {}", from, e.getMessage());
+                appendMessage(contact, from + ": [не удалось расшифровать сообщение]");
+            }
         });
+    }
+    private void saveReceivedFile(String fileName, byte[] fileData) {
+        try {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Сохранить файл");
+            fileChooser.setInitialFileName(fileName);
+
+            Stage stage = (Stage) listView.getScene().getWindow();
+            File file = fileChooser.showSaveDialog(stage);
+
+            if (file != null) {
+                Files.write(file.toPath(), fileData);
+                appendMessage(recipientId, "Файл сохранен: " + file.getAbsolutePath());
+            }
+        } catch (IOException e) {
+            appendMessage(recipientId, "Ошибка сохранения файла: " + e.getMessage());
+        }
     }
 
     private void onPublicKeyReceived(ChatMessage msg) {
@@ -156,6 +216,7 @@ public class ChatController {
                                         .message(bigIntToUnsignedBytes(diffieHellman.getPublicKey()))
                                         .timestamp(LocalDateTime.now().toString())
                                         .build());
+
                         log.debug("User {} send public key to {}", myId, recipientId);
                     } catch (Exception e) {
                         log.error(e.getMessage());
@@ -189,30 +250,98 @@ public class ChatController {
 
         sendButton.setOnAction(event -> {
             String text = messageField.getText().trim();
-            if (text.isEmpty() || recipientId == null) return;
+            if ((text.isEmpty() && attachFile == null) || recipientId == null) return;
 
             if (!isSharedSecretEstablished()) {
                 appendMessage(recipientId, "Ошибка: общий секрет не установлен, дождитесь обмена ключами.");
                 return;
             }
 
-            ChatMessage msg = ChatMessage.builder()
-                    .senderId(myId)
-                    .recipientId(recipientId)
-                    .message(
-                            symmetricCipherContext.encrypt(text.getBytes())
-                    )
-                    .timestamp(LocalDateTime.now().toString())
-                    .build();
-
             try {
-                MessageSender.sendChatMessage(msg);
-                appendMessage(recipientId, "Вы: " + text);
-                messageField.clear();
+                if (attachFile != null) {
+                    ChatMessage fileMsg = ChatMessage.builder()
+                            .senderId(myId)
+                            .recipientId(recipientId)
+                            .message(encryptedFileData)
+                            .fileName(attachFileName)
+                            .isFile(true)
+                            .timestamp(LocalDateTime.now().toString())
+                            .build();
+
+                    MessageSender.sendChatMessage(fileMsg);
+                    appendMessage(recipientId, "Вы: отправили файл " + attachFileName);
+
+                    resetAttachedFile();
+                } else {
+                    ChatMessage msg = ChatMessage.builder()
+                            .senderId(myId)
+                            .recipientId(recipientId)
+                            .message(symmetricCipherContext.encrypt(text.getBytes()))
+                            .timestamp(LocalDateTime.now().toString())
+                            .build();
+
+                    MessageSender.sendChatMessage(msg);
+                    appendMessage(recipientId, "Вы: " + text);
+                    messageField.clear();
+                }
             } catch (Exception e) {
                 appendMessage(recipientId, "Ошибка: " + e.getMessage());
             }
         });
+
+        attachButton.setOnAction(event -> attachFile());
+    }
+
+    private void resetAttachedFile() {
+        this.attachFile = null;
+        this.encryptedFileData = null;
+        this.attachFileName = null;
+        messageField.setPromptText("Введите сообщение...");
+    }
+
+    private void attachFile() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Выберите файл для отправки");
+
+        FileChooser.ExtensionFilter allFiles = new FileChooser.ExtensionFilter("Все файлы", "*.*");
+        FileChooser.ExtensionFilter images = new FileChooser.ExtensionFilter("Изображения", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp");
+        FileChooser.ExtensionFilter documents = new FileChooser.ExtensionFilter("Документы", "*.pdf", "*.doc", "*.docx", "*.txt", "*.rtf");
+        FileChooser.ExtensionFilter archives = new FileChooser.ExtensionFilter("Архивы", "*.zip", "*.rar", "*.7z");
+
+        fileChooser.getExtensionFilters().addAll(images, documents, archives, allFiles);
+
+        Stage stage = (Stage) attachButton.getScene().getWindow();
+        File file = fileChooser.showOpenDialog(stage);
+
+        if (file != null && isSharedSecretEstablished() && recipientId != null) {
+            this.attachFile = file;
+            this.attachFileName = file.getName();
+
+            try {
+                byte[] fileData = Files.readAllBytes(file.toPath());
+                this.encryptedFileData = symmetricCipherContext.encrypt(fileData);
+                log.debug("encryptedFileData: {}", encryptedFileData);
+
+                messageField.setPromptText("Файл: " + file.getName() + " (" + formatFileSize(file.length()) + ")");
+            } catch (IOException e) {
+                appendMessage(recipientId, "Ошибка чтения файла: " + e.getMessage());
+                this.attachFile = null;
+                this.encryptedFileData = null;
+
+            }
+        }
+    }
+
+    private String formatFileSize(long bytes) {
+        if (bytes < 0) return "0 B";
+        if (bytes < 1024) return bytes + " B";
+
+        String[] units = {"KB", "MB", "GB", "TB", "PB", "EB"};
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+
+        if (exp > units.length) exp = units.length;
+
+        return String.format("%.1f %s", bytes / Math.pow(1024, exp), units[exp-1]);
     }
 
     public static byte[] bigIntToUnsignedBytes(BigInteger value) {

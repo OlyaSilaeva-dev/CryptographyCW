@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
-
-<BorderPane fx:controller="com.cryptography.frontend.controller.ChatController" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="446.0" prefWidth="473.0" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1">
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="446.0" prefWidth="473.0" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cryptography.frontend.controller.ChatController">
    <left>
       <VBox prefHeight="446.0" prefWidth="114.0" BorderPane.alignment="CENTER">
          <children>
@@ -22,10 +24,22 @@
       <VBox prefHeight="200.0" prefWidth="100.0" BorderPane.alignment="CENTER">
          <children>
             <ListView fx:id="listView" prefHeight="419.0" prefWidth="359.0" />
-            <HBox prefHeight="29.0" prefWidth="359.0">
+            <HBox prefHeight="21.0" prefWidth="359.0">
                <children>
-                  <TextField fx:id="messageField" prefHeight="25.0" prefWidth="297.0" />
-                  <Button fx:id="sendButton" mnemonicParsing="false" prefHeight="25.0" prefWidth="68.0" text="Send" />
+                  <Button fx:id="attachButton" mnemonicParsing="false" prefHeight="16.0" prefWidth="23.0">
+                     <graphic>
+                        <ImageView fitHeight="17.0" fitWidth="14.0" scaleX="1.5" scaleY="1.25" scaleZ="1.5">
+                           <image>
+                              <Image url="@icons8-attach-25.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                  </Button>
+                  <TextField fx:id="messageField" prefHeight="25.0" prefWidth="263.0">
+                     <HBox.margin>
+                        <Insets />
+                     </HBox.margin></TextField>
+                  <Button fx:id="sendButton" mnemonicParsing="false" prefHeight="25.0" prefWidth="65.0" text="Send" />
                </children>
             </HBox>
          </children>
