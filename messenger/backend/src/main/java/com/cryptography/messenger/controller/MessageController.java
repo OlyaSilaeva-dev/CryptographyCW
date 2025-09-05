@@ -30,11 +30,6 @@ public class MessageController {
         this.redis = redis;
     }
 
-//    @GetMapping
-//    public ResponseEntity<Iterable<ChatMessage>> getChatMessages() { //история сообщений
-//
-//    }
-
     @PostMapping("/send-message")
     public ResponseEntity<Void> sendMessage(@RequestBody ChatMessage message) {
         producer.send(CHAT_MESSAGE_TOPIC, message);

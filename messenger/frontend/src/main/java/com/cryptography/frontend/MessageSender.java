@@ -1,6 +1,7 @@
 package com.cryptography.frontend;
 
 import com.cryptography.frontend.dto.KeyParams;
+import com.cryptography.frontend.dto.SessionContext;
 import com.cryptography.frontend.entity.ChatMessage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,6 +23,7 @@ public class MessageSender {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(BASE_URL + "/send-message"))
                 .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + SessionContext.jwtToken)
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
@@ -33,6 +35,7 @@ public class MessageSender {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(BASE_URL + "/save-public-key"))
                 .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + SessionContext.jwtToken)
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
@@ -48,6 +51,7 @@ public class MessageSender {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
+                .header("Authorization", "Bearer " + SessionContext.jwtToken)
                 .GET()
                 .build();
 

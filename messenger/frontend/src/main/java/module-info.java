@@ -19,11 +19,12 @@ module com.cryptography.frontend {
     requires spring.context;
 
 
-    exports com.cryptography.frontend.dto to com.fasterxml.jackson.databind;
     opens com.cryptography.frontend to javafx.fxml;
     exports com.cryptography.frontend;
     exports com.cryptography.frontend.entity;
     opens com.cryptography.frontend.entity to javafx.fxml;
     exports com.cryptography.frontend.controller;
     opens com.cryptography.frontend.controller to javafx.fxml;
+    exports com.cryptography.frontend.dto;
+    opens com.cryptography.frontend.dto to javafx.fxml;
 }
