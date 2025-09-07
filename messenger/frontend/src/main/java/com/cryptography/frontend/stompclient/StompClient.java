@@ -1,4 +1,4 @@
-package com.cryptography.frontend;
+package com.cryptography.frontend.stompclient;
 
 import com.cryptography.frontend.entity.ChatMessage;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;

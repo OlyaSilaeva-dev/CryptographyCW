@@ -14,20 +14,20 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @AllArgsConstructor
 public class AuthController {
     private final UserService userService;
 
     @PostMapping("/register")
-    private ResponseEntity<User> register(@RequestBody AuthRequest authRequest) {
-        User created = userService.registerUser(authRequest.getUsername(), authRequest.getPassword());
-        return ResponseEntity.ok(created);
+    public ResponseEntity<Void> register(@RequestBody AuthRequest authRequest) {
+        userService.registerUser(authRequest.getUsername(), authRequest.getPassword());
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/login")
-    private ResponseEntity<String> login(@RequestBody AuthRequest authRequest) {
+    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest authRequest) {
         AuthResponse success = userService.login(authRequest);
-        return ResponseEntity.ok(success.getToken());
+        return ResponseEntity.ok(success);
     }
 }

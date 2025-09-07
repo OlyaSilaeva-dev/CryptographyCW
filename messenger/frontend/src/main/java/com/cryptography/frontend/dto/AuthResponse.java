@@ -1,4 +1,4 @@
-package com.cryptography.messenger.dto;
+package com.cryptography.frontend.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,5 +9,5 @@ public class AuthResponse {
     private String userId;
     private String token;
     private String message;
-    private boolean success;
+    private Boolean success;
 }

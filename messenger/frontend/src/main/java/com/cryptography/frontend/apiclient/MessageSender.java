@@ -1,4 +1,4 @@
-package com.cryptography.frontend;
+package com.cryptography.frontend.apiclient;
 
 import com.cryptography.frontend.dto.KeyParams;
 import com.cryptography.frontend.dto.SessionContext;
@@ -12,6 +12,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+
+import static com.cryptography.frontend.apiclient.ApiClientUtils.fromJson;
+import static com.cryptography.frontend.apiclient.ApiClientUtils.toJson;
 
 public class MessageSender {
     private static final String BASE_URL = "http://localhost:8080/api/v1/messages";
@@ -55,11 +58,10 @@ public class MessageSender {
                 .GET()
                 .build();
 
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == 200) {
-            return parseJsonToKeyParams(response.body());
+            return fromJson(response.body(), KeyParams.class);
         } else {
             throw new RuntimeException("Ошибка запроса: " + response.statusCode());
         }
@@ -77,24 +79,12 @@ public class MessageSender {
                 .GET()
                 .build();
 
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
         if (response.statusCode() == 200) {
-            byte[] body = response.body();
-            return body;
+            return response.body();
         } else {
             throw new RuntimeException("Ошибка запроса: " + response.statusCode());
         }
-    }
-
-    private static KeyParams parseJsonToKeyParams(String json) throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.readValue(json, KeyParams.class);
-    }
-
-    private static String toJson(ChatMessage message) throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.writeValueAsString(message);
     }
 }

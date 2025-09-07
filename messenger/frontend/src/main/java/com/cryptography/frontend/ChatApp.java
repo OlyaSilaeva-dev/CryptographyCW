@@ -10,7 +10,7 @@ public class ChatApp extends Application {
     @Override
     public void start(Stage primaryStage) throws Exception {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/cryptography/frontend/login.fxml"));
-        Scene scene = new Scene(loader.load(), 473, 446);
+        Scene scene = new Scene(loader.load());
 
         primaryStage.setTitle("JavaFX Чат");
         primaryStage.setScene(scene);

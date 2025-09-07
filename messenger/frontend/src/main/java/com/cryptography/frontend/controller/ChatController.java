@@ -1,7 +1,7 @@
 package com.cryptography.frontend.controller;
 
-import com.cryptography.frontend.MessageSender;
-import com.cryptography.frontend.StompClient;
+import com.cryptography.frontend.apiclient.MessageSender;
+import com.cryptography.frontend.stompclient.StompClient;
 import com.cryptography.frontend.algorithms.DiffieHellman;
 import com.cryptography.frontend.algorithms.MacGuffin.MacGuffin;
 import com.cryptography.frontend.algorithms.enums.EncryptionMode;
