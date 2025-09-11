@@ -1,6 +1,8 @@
 package com.cryptography.frontend.controller;
 
 import com.cryptography.frontend.apiclient.MessageSender;
+import com.cryptography.frontend.apiclient.UsersClient;
+import com.cryptography.frontend.dto.UserDTO;
 import com.cryptography.frontend.stompclient.StompClient;
 import com.cryptography.frontend.algorithms.DiffieHellman;
 import com.cryptography.frontend.algorithms.MacGuffin.MacGuffin;
@@ -25,6 +27,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.util.*;
+
+import static com.cryptography.frontend.controller.ControllerUtils.ERR;
+import static com.cryptography.frontend.controller.ControllerUtils.showAlert;
 
 @Slf4j
 public class ChatController {
@@ -73,7 +78,7 @@ public class ChatController {
 
             if (!sharedSecrets.containsKey(from)) {
                 log.warn("Нет общего секрета для сообщения от {}", from);
-                appendMessage(contact, from + ": [сообщение не может быть расшифровано - нет общего ключа]");
+                appendMessage(contact, from + ": сообщение не может быть расшифровано - нет общего ключа");
                 return;
             }
 
@@ -118,7 +123,7 @@ public class ChatController {
 
             } catch (Exception e) {
                 log.error("Ошибка дешифрования сообщения от {}: {}", from, e.getMessage());
-                appendMessage(contact, from + ": [не удалось расшифровать сообщение]");
+                appendMessage(contact, from + ": не удалось расшифровать сообщение");
             }
         });
     }
@@ -166,14 +171,29 @@ public class ChatController {
         listView.getItems().addAll(messageHistory.getOrDefault(recipientId, List.of()));
     }
 
-    public void init(String myId) {
+    public void init(String myId) throws RuntimeException {
         this.senderId = myId;
 
         StompClient.connect(myId, this::onMessageReceived, this::onPublicKeyReceived);
 
-        List<String> users = new ArrayList<>(List.of("user1", "user2", "user3", "user4"));
-        users.remove(myId);
-        contactsView.getItems().addAll(users);
+        List<UserDTO> users;
+        try {
+            users = UsersClient.getUsers(myId);
+            log.debug("список пользователей: {}", users);
+        } catch (Exception e) {
+            log.error("Ошибка загрузки списка пользователей {}",e.getMessage());
+            throw new RuntimeException(e);
+        }
+
+        contactsView.getItems().clear();
+        if (users != null) {
+            contactsView.getItems().addAll(
+                    users.stream()
+                            .filter(dto -> !dto.getId().equals(myId))
+                            .map(UserDTO::getName)
+                            .toList()
+            );
+        }
 
         contactsView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
@@ -294,20 +314,20 @@ public class ChatController {
         String text = messageField.getText().trim();
         if ((text.isEmpty() && attachFile == null) || recipientId == null) {
             if (recipientId == null) {
-                appendMessage("system", "Ошибка: выберите получателя");
+                showAlert(ERR, "Выберите получателя");
             }
             return;
         }
 
         if (!isSharedSecretEstablished()) {
-            appendMessage(recipientId, "Ошибка: общий секрет не установлен, дождитесь обмена ключами.");
+            showAlert(ERR, "Общий секрет с {" + recipientId + "} не установлен, дождитесь обмена ключами.");
             return;
         }
 
         try {
             if (attachFile != null) {
                 if (encryptedFileData == null) {
-                    appendMessage(recipientId, "Ошибка: файл не подготовлен к отправке");
+                    showAlert(ERR, "Файл не подготовлен к отправке");
                     return;
                 }
                 ChatMessage fileMsg = ChatMessage.builder()
@@ -338,7 +358,7 @@ public class ChatController {
             }
         } catch (Exception e) {
             log.error("Ошибка отправки: {}", e.getMessage());
-            appendMessage(recipientId, "Ошибка: " + e.getMessage());
+            showAlert(ERR, "Ошибка отправки: " + e.getMessage());
 
             if (attachFile != null) {
                 resetAttachedFile();
@@ -374,8 +394,6 @@ public class ChatController {
     }
 
     private void resetDownloadButton() {
-//        downloadButton.setDisable(false);
-//        downloadButton.setText("Скачать файл");
         pendingDownloadFile = null;
     }
 

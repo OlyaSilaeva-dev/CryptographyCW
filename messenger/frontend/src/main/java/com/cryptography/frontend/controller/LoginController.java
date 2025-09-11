@@ -1,6 +1,7 @@
 package com.cryptography.frontend.controller;
 
 import com.cryptography.frontend.apiclient.AuthClient;
+import com.cryptography.frontend.context.SessionManager;
 import com.cryptography.frontend.dto.AuthRequest;
 import com.cryptography.frontend.dto.AuthResponse;
 import javafx.fxml.FXML;
@@ -33,15 +34,11 @@ public class LoginController {
 
             try {
                 AuthResponse response = AuthClient.login(new AuthRequest(name, pass));
-                if (response.getSuccess()) {
-                    String id = response.getUserId();
-                    openChatWindow(id);
-                    Stage stage = (Stage) loginButton.getScene().getWindow();
-                    stage.close();
-                    showAlert(SUCCESS, response.getMessage());
-                } else {
-                    showAlert(ERR, response.getMessage());
-                }
+                String id = response.getUserId();
+                SessionManager.getInstance().setToken(id, response.getToken());
+                openChatWindow(id);
+                Stage stage = (Stage) loginButton.getScene().getWindow();
+                stage.close();
             } catch (Exception e) {
                 log.error(e.getMessage());
                 showAlert(ERR, "Не удалось выполнить вход: " + e.getMessage());

@@ -29,7 +29,12 @@ public class RegisterController {
     Button registrationButton;
 
     @FXML
-    public void initialize() {
+    private void initialize() {
+        registrationButton.setOnAction(e -> handleRegister());
+    }
+
+    @FXML
+    public void handleRegister() {
         String username = userName.getText();
         String pass = password.getText();
         String repeatPass = repeatPassword.getText();

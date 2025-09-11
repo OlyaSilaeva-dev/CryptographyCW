@@ -22,5 +22,5 @@
    <TextField fx:id="userName" promptText="Введите имя пользователя"/>
    <PasswordField fx:id="password" promptText="Введите пароль"/>
    <PasswordField fx:id="repeatPassword" promptText="Повторите пароль"/>
-   <Button fx:id="registrationButton" mnemonicParsing="false" text="Зарегистрироваться"/>
+   <Button fx:id="registrationButton" onAction="#handleRegister" mnemonicParsing="false" text="Зарегистрироваться"/>
 </VBox>

@@ -31,4 +31,6 @@ module com.cryptography.frontend {
     opens com.cryptography.frontend.apiclient to javafx.fxml;
     exports com.cryptography.frontend.stompclient;
     opens com.cryptography.frontend.stompclient to javafx.fxml;
+    exports com.cryptography.frontend.context;
+    opens com.cryptography.frontend.context to javafx.fxml;
 }
