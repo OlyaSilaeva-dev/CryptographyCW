@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.cryptography.frontend.controller.ControllerUtils.ERR;
 import static com.cryptography.frontend.controller.ControllerUtils.showAlert;
@@ -34,7 +35,7 @@ import static com.cryptography.frontend.controller.ControllerUtils.showAlert;
 @Slf4j
 public class ChatController {
     @FXML
-    private ListView<String> contactsView;
+    private ListView<UserDTO> contactsView;
     @FXML
     private ListView<String> listView;
     @FXML
@@ -48,82 +49,76 @@ public class ChatController {
     private String attachFileName;
     private byte[] encryptedFileData;
 
-    private DiffieHellman diffieHellman;
     private String senderId;
     private String recipientId = null;
 
-    private SymmetricCipherContext symmetricCipherContext;
-    private final Map<String, List<String>> messageHistory = new HashMap<>();
+    private Map<String, SymmetricCipherContext> cipherContexts = new HashMap<>();
+    DiffieHellman diffieHellman;
 
+    private final Map<String, List<String>> messageHistory = new HashMap<>();
     private final Map<String, List<ReceivedFile>> receivedFiles = new HashMap<>();
-    private ReceivedFile pendingDownloadFile;
 
     /// Map<recipient, key>
     private final Map<String, BigInteger> sharedSecrets = new HashMap<>();
 
     private boolean isSharedSecretEstablished() {
-        return recipientId != null
+        return  recipientId != null
                 && sharedSecrets.containsKey(recipientId)
                 && sharedSecrets.get(recipientId) != null;
     }
 
     private void onMessageReceived(ChatMessage msg) {
         Platform.runLater(() -> {
-            String from = msg.getSenderId();
-            String contact = from.equals(senderId) ? msg.getRecipientId() : from;
+            String fromId = msg.getSenderId();
+            String contactId = fromId.equals(senderId) ? msg.getRecipientId() : fromId;
 
-            if (!contactsView.getItems().contains(contact)) {
-                contactsView.getItems().add(contact);
-            }
-
-            if (!sharedSecrets.containsKey(from)) {
-                log.warn("Нет общего секрета для сообщения от {}", from);
-                appendMessage(contact, from + ": сообщение не может быть расшифровано - нет общего ключа");
+            if (!sharedSecrets.containsKey(fromId)) {
+                log.warn("Нет общего секрета для сообщения от {}", fromId);
+                showAlert("System", "Нет общего секрета для сообщения от {" + fromId + "}");
                 return;
             }
 
-            try {
-                SymmetricCipherContext senderCipherContext = new SymmetricCipherContext(
-                        new MacGuffin(),
-                        sharedSecrets.get(from).toByteArray(),
-                        EncryptionMode.ECB,
-                        PaddingMode.PKCS7,
-                        new byte[0]
-                );
+            UserDTO contact = contactsView.getItems().stream()
+                    .filter(u -> u.getId().equals(contactId))
+                    .findFirst()
+                    .orElseGet(() -> {
+                        UserDTO user = UserDTO.builder()
+                                .id(contactId)
+                                .name("Unknown (" + contactId + ")")
+                                .build();
+                        contactsView.getItems().add(user);
+                        return user;
+                    });
 
+            try {
+                SymmetricCipherContext senderCipherContext = cipherContexts.get(contactId);
                 String displayText;
 
                 if (msg.isFile()) {
                     byte[] decryptedFileData = senderCipherContext.decrypt(msg.getMessage());
 
-                    ReceivedFile receivedFile = new ReceivedFile(msg.getFileName(), decryptedFileData, from);
+                    ReceivedFile receivedFile = new ReceivedFile(msg.getFileName(), decryptedFileData, contact.getId());
 
-                    receivedFiles.putIfAbsent(contact, new ArrayList<>());
-                    receivedFiles.get(contact).add(receivedFile);
+                    receivedFiles.putIfAbsent(contactId, new ArrayList<>());
+                    receivedFiles.get(contactId).add(receivedFile);
 
-                    displayText = from + ": отправил(а) файл " + msg.getFileName();
-
-                    if (contact.equals(recipientId)) {
-//                        downloadButton.setDisable(false);
-//                        downloadButton.setText("Скачать файл (" + msg.getFileName() + ")");
-                        pendingDownloadFile = receivedFile;
-                    }
+                    displayText = contact.getName() + ": отправил(а) файл " + msg.getFileName();
                 } else {
                     byte[] decryptedBytes = senderCipherContext.decrypt(msg.getMessage());
-                    displayText = from + ": " + new String(decryptedBytes, StandardCharsets.UTF_8);
+                    displayText = contact.getName() + ": " + new String(decryptedBytes, StandardCharsets.UTF_8);
                 }
 
-                appendMessage(contact, displayText);
+                appendMessage(contactId, displayText);
 
-                if (contact.equals(recipientId)) {
+                if (contactId.equals(recipientId)) {
                     updateMessageList();
                 }
 
-                log.debug("Получено сообщение от {}: {}", from, msg);
+                log.debug("Получено сообщение от {}: {}", contact.getName(), msg);
 
             } catch (Exception e) {
-                log.error("Ошибка дешифрования сообщения от {}: {}", from, e.getMessage());
-                appendMessage(contact, from + ": не удалось расшифровать сообщение");
+                log.error("Ошибка дешифрования сообщения от {}: {}", contact.getName(), e.getMessage());
+                appendMessage(contactId, contact.getName() + ": не удалось расшифровать сообщение");
             }
         });
     }
@@ -141,7 +136,7 @@ public class ChatController {
                     log.debug("Shared secret with {}, shared secret {}", from, sharedSecret);
                     sharedSecrets.put(from, sharedSecret);
 
-                    symmetricCipherContext = new SymmetricCipherContext(
+                    SymmetricCipherContext context = new SymmetricCipherContext(
                             new MacGuffin(),
                             sharedSecrets.get(recipientId).toByteArray(),
                             EncryptionMode.ECB,
@@ -149,7 +144,9 @@ public class ChatController {
                             new byte[0]
                     );
 
+                    cipherContexts.put(from, context);
                     updateMessageList();
+
                 } catch (Exception e) {
                     log.error(e.getMessage());
                 }
@@ -157,18 +154,18 @@ public class ChatController {
         });
     }
 
-    private void appendMessage(String contact, String message) {
-        messageHistory.putIfAbsent(contact, new ArrayList<>());
-        messageHistory.get(contact).add(message);
+    private void appendMessage(String contactId, String message) {
+        messageHistory.putIfAbsent(contactId, new ArrayList<>());
+        messageHistory.get(contactId).add(message);
 
-        if (Objects.equals(recipientId, contact)) {
+        if (Objects.equals(recipientId, contactId)) {
             updateMessageList();
         }
     }
 
     private void updateMessageList() {
-        listView.getItems().clear();
-        listView.getItems().addAll(messageHistory.getOrDefault(recipientId, List.of()));
+        List<String> messages = messageHistory.getOrDefault(recipientId, new ArrayList<>());
+        listView.getItems().setAll(messages);
     }
 
     public void init(String myId) throws RuntimeException {
@@ -176,38 +173,35 @@ public class ChatController {
 
         StompClient.connect(myId, this::onMessageReceived, this::onPublicKeyReceived);
 
-        List<UserDTO> users;
+        contactsView.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(UserDTO item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.getName());
+            }
+        });
+
         try {
-            users = UsersClient.getUsers(myId);
+            List<UserDTO> allUsers = UsersClient.getUsers(myId);
+            List<UserDTO> users = allUsers.stream()
+                    .filter(user -> !Objects.equals(user.getId(), myId))
+                    .collect(Collectors.toList());
             log.debug("список пользователей: {}", users);
+
+            contactsView.getItems().setAll(users);
         } catch (Exception e) {
             log.error("Ошибка загрузки списка пользователей {}",e.getMessage());
             throw new RuntimeException(e);
         }
 
-        contactsView.getItems().clear();
-        if (users != null) {
-            contactsView.getItems().addAll(
-                    users.stream()
-                            .filter(dto -> !dto.getId().equals(myId))
-                            .map(UserDTO::getName)
-                            .toList()
-            );
-        }
-
         contactsView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
-                recipientId = newVal;
-                resetDownloadButton();
+                recipientId = newVal.getId();
+                String recipientName = newVal.getName();
 
-                if (receivedFiles.containsKey(newVal) && !receivedFiles.get(newVal).isEmpty()) {
-                    List<ReceivedFile> files = receivedFiles.get(newVal);
-                    pendingDownloadFile = files.get(files.size() - 1);
-//                    downloadButton.setDisable(false);
-//                    downloadButton.setText("Скачать файл (" + pendingDownloadFile.getFileName() + ")");
-                }
+                log.debug("Выбран контакт: {} (id={})", recipientName, recipientId);
 
-                if (sharedSecrets.containsKey(newVal)) {
+                if (sharedSecrets.containsKey(newVal.getId())) {
                     updateMessageList();
                     return;
                 }
@@ -252,13 +246,15 @@ public class ChatController {
                         sharedSecrets.put(recipientId, sharedSecret);
                         log.debug("Shared secret with (by redis) {}, shared secret {}", recipientId, sharedSecret);
 
-                        symmetricCipherContext = new SymmetricCipherContext(
+                        SymmetricCipherContext symmetricCipherContext = new SymmetricCipherContext(
                                 new MacGuffin(),
                                 sharedSecret.toByteArray(),
                                 EncryptionMode.ECB,
                                 PaddingMode.PKCS7,
                                 new byte[0]
                         );
+                        cipherContexts.put(recipientId, symmetricCipherContext);
+
                         updateMessageList();
                     }
                 }
@@ -345,6 +341,7 @@ public class ChatController {
 
                 resetAttachedFile();
             } else {
+                SymmetricCipherContext symmetricCipherContext = cipherContexts.get(recipientId);
                 ChatMessage msg = ChatMessage.builder()
                         .senderId(myId)
                         .recipientId(recipientId)
@@ -393,10 +390,6 @@ public class ChatController {
         }
     }
 
-    private void resetDownloadButton() {
-        pendingDownloadFile = null;
-    }
-
     private String getFileExtension(String fileName) {
         int lastDotIndex = fileName.lastIndexOf('.');
         if (lastDotIndex > 0 && lastDotIndex < fileName.length() - 1) {
@@ -442,6 +435,7 @@ public class ChatController {
 
             try {
                 byte[] fileData = Files.readAllBytes(file.toPath());
+                SymmetricCipherContext symmetricCipherContext = cipherContexts.get(recipientId);
                 this.encryptedFileData = symmetricCipherContext.encrypt(fileData);
                 messageField.setPromptText("Файл: " + file.getName() + " (" + formatFileSize(file.length()) + ")");
 
@@ -457,15 +451,10 @@ public class ChatController {
     }
 
     private String formatFileSize(long bytes) {
-        if (bytes < 0) return "0 B";
         if (bytes < 1024) return bytes + " B";
-
-        String[] units = {"KB", "MB", "GB", "TB", "PB", "EB"};
         int exp = (int) (Math.log(bytes) / Math.log(1024));
-
-        if (exp > units.length) exp = units.length;
-
-        return String.format("%.1f %s", bytes / Math.pow(1024, exp), units[exp - 1]);
+        String[] units = {"KB", "MB", "GB", "TB"};
+        return String.format("%.1f %s", bytes / Math.pow(1024, exp), units[exp-1]);
     }
 
     public static byte[] bigIntToUnsignedBytes(BigInteger value) {

@@ -73,7 +73,6 @@ public class MessageSender {
                 BASE_URL, encodedSenderId, encodedRecipientId);
 
         HttpRequest request = HttpRequest.newBuilder()
-                .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + token)
                 .uri(URI.create(url))
                 .GET()
