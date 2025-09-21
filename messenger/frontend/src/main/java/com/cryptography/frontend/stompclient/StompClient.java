@@ -22,6 +22,7 @@ public class StompClient {
         String url = "ws://localhost:8080/ws";
 
         WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+        stompClient.setInboundMessageSizeLimit(1024 * 1024);
         stompClient.setMessageConverter(new MappingJackson2MessageConverter());
 
         stompClient.connect(url, new StompSessionHandlerAdapter() {

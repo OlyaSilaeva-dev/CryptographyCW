@@ -107,9 +107,11 @@ public class SymmetricCipherContext {
 
     private byte[] ECBEncrypt(byte[][] blocks, int blockSize, int blockCnt) {
         byte[] ciphertext = new byte[blockCnt * blockSize];
+
+        Arrays.parallelSetAll(blocks, i -> cipher.encrypt(blocks[i]));
+
         for (int i = 0; i < blockCnt; i++) {
-            byte[] cipherBlock = cipher.encrypt(blocks[i]);
-            System.arraycopy(cipherBlock, 0, ciphertext, i * blockSize, blockSize);
+            System.arraycopy(blocks[i], 0, ciphertext, i * blockSize, blockSize);
         }
         return ciphertext;
     }
@@ -168,22 +170,29 @@ public class SymmetricCipherContext {
 
     private byte[] CTREncrypt(byte[][] blocks, int blockSize, int blockCnt) {
         byte[] ciphertext = new byte[blockCnt * blockSize];
-        byte[] counter = iv.clone();
 
-        for (int i = 0; i < blockCnt; i++) {
-            byte[] encryptedBlock = cipher.encrypt(counter);
-            byte[] xorResult = XOR2Blocks(blocks[i], encryptedBlock);
+        Arrays.parallelSetAll(blocks, i -> {
+            byte[] localCounter = addCounter(iv, i);
+            byte[] encryptedCounter = cipher.encrypt(localCounter);
+            byte[] xorResult = XOR2Blocks(blocks[i], encryptedCounter);
             System.arraycopy(xorResult, 0, ciphertext, i * blockSize, blockSize);
-            incrementCounter(counter);
-        }
+            return blocks[i];
+        });
+
         return ciphertext;
     }
 
-    private void incrementCounter(byte[] counter) {
-        for (int i = counter.length - 1; i >= 0; i--) {
-            if (++counter[i] != 0) break;
+    private byte[] addCounter(byte[] iv, int increment) {
+        byte[] counter = iv.clone();
+        int carry = increment;
+        for (int j = counter.length - 1; j >= 0 && carry > 0; j--) {
+            int sum = (counter[j] & 0xFF) + (carry & 0xFF);
+            counter[j] = (byte) sum;
+            carry = sum >>> 8;
         }
+        return counter;
     }
+
 
     private byte[] randomDeltaEncrypt(byte[][] blocks, int blockSize, int blockCnt) {
         byte[] ciphertext = new byte[blockCnt * blockSize];

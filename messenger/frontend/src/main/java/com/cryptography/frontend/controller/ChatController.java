@@ -29,8 +29,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.cryptography.frontend.controller.ControllerUtils.ERR;
-import static com.cryptography.frontend.controller.ControllerUtils.showAlert;
+import static com.cryptography.frontend.controller.ControllerUtils.*;
 
 @Slf4j
 public class ChatController {
@@ -381,12 +380,12 @@ public class ChatController {
 
             if (saveFile != null) {
                 Files.write(saveFile.toPath(), file.getFileData());
-                appendMessage(recipientId, "Файл сохранен: " + saveFile.getName());
+                showAlert(SUCCESS, "Файл сохранен: " + saveFile.getName());
                 log.info("Файл '{}' сохранен в {}", file.getFileName(), saveFile.getAbsolutePath());
             }
         } catch (Exception e) {
             log.error("Ошибка сохранения файла: {}", e.getMessage());
-            appendMessage(recipientId, "Ошибка сохранения файла: " + e.getMessage());
+            showAlert(ERR, "Ошибка сохранения файла: " + e.getMessage());
         }
     }
 
@@ -407,12 +406,12 @@ public class ChatController {
 
     private void attachFile() {
         if (recipientId == null) {
-            appendMessage("system", "Ошибка: сначала выберите получателя");
+            showAlert(ERR, "Ошибка: сначала выберите получателя");
             return;
         }
 
         if (!isSharedSecretEstablished()) {
-            appendMessage(recipientId, "Ошибка: общий секрет не установлен");
+            showAlert(ERR, "Ошибка: общий секрет не установлен");
             return;
         }
 
@@ -441,10 +440,10 @@ public class ChatController {
 
                 log.debug("Файл {} подготовлен к отправке", file.getName());
             } catch (IOException e) {
-                appendMessage(recipientId, "Ошибка чтения файла: " + e.getMessage());
+                showAlert(ERR, "Ошибка чтения файла: " + e.getMessage());
                 resetAttachedFile();
             } catch (Exception e) {
-                appendMessage(recipientId, "Ошибка шифрования: " + e.getMessage());
+                showAlert(ERR, "Ошибка шифрования: " + e.getMessage());
                 resetAttachedFile();
             }
         }
