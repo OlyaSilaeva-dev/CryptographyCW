@@ -20,15 +20,28 @@ public class AuthController {
     private final UserService userService;
 
     @PostMapping("/register")
-    public ResponseEntity<Void> register(@RequestBody AuthRequest authRequest) {
-        log.info("Registering user {}", authRequest.getUsername());
-        userService.registerUser(authRequest.getUsername(), authRequest.getPassword());
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+    public ResponseEntity<String> register(@RequestBody AuthRequest authRequest) {
+        try {
+
+            log.info("Registering user {}", authRequest.getUsername());
+            userService.registerUser(authRequest.getUsername(), authRequest.getPassword());
+            return ResponseEntity.status(HttpStatus.CREATED).build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Ошибка сервера");
+        }
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest authRequest) {
-        AuthResponse success = userService.login(authRequest.getUsername(), authRequest.getPassword());
-        return ResponseEntity.ok(success);
+        try {
+            AuthResponse success = userService.login(authRequest.getUsername(), authRequest.getPassword());
+            return ResponseEntity.ok(success);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new AuthResponse("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new AuthResponse("error", e.getMessage()));
+        }
     }
 }

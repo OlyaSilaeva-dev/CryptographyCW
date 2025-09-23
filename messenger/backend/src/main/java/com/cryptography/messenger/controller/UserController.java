@@ -24,7 +24,7 @@ public class UserController {
         List<Users> users = userService.findAll();
         List<UserDTO> dtos = users.stream()
                 .map(user -> UserDTO.builder()
-                        .id(user.getId())
+                        .id(user.getId().toString())
                         .name(user.getUsername())
                         .build()
                 )

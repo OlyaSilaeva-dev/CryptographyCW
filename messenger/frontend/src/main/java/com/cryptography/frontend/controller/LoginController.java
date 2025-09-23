@@ -36,7 +36,7 @@ public class LoginController {
                 AuthResponse response = AuthClient.login(new AuthRequest(name, pass));
                 String id = response.getUserId();
                 SessionManager.getInstance().setToken(id, response.getToken());
-                openChatWindow(id);
+                openChatWindow(id, name);
                 Stage stage = (Stage) loginButton.getScene().getWindow();
                 stage.close();
             } catch (Exception e) {
@@ -64,7 +64,7 @@ public class LoginController {
         }
     }
 
-    private void openChatWindow(String id) {
+    private void openChatWindow(String id, String name) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/cryptography/frontend/chat.fxml"));
             Parent root = loader.load();
@@ -73,11 +73,13 @@ public class LoginController {
             chatController.init(id);
 
             Stage stage = new Stage();
-            stage.setTitle("Чат - пользователь: " + id);
             stage.setScene(new Scene(root));
+            stage.setTitle("Чат - пользователь: " + name);
             stage.show();
+
+            ((Stage) loginButton.getScene().getWindow()).close();
         } catch (Exception e) {
-            log.error("Ошибка загрузки чатов: {}", e.getMessage());
+            log.error("Ошибка загрузки чатов для пользователя: {}", name);
         }
     }
 }

@@ -73,7 +73,7 @@ public class ChatController {
 
             if (!sharedSecrets.containsKey(fromId)) {
                 log.warn("Нет общего секрета для сообщения от {}", fromId);
-                showAlert("System", "Нет общего секрета для сообщения от {" + fromId + "}");
+                showAlert(ERR, "Нет общего секрета для сообщения от {" + fromId + "}");
                 return;
             }
 
@@ -132,7 +132,7 @@ public class ChatController {
                     BigInteger receivedPublicKey = new BigInteger(1, publicKey);
                     BigInteger sharedSecret = diffieHellman.computeSharedSecret(receivedPublicKey);
 
-                    log.debug("Shared secret with {}, shared secret {}", from, sharedSecret);
+                    log.debug("Установлен общий секрет с {}, общий секрет {}", from, sharedSecret);
                     sharedSecrets.put(from, sharedSecret);
 
                     SymmetricCipherContext context = new SymmetricCipherContext(
@@ -153,6 +153,12 @@ public class ChatController {
         });
     }
 
+    private void onContactAdded(UserDTO userDTO) {
+        Platform.runLater(() -> {
+            contactsView.getItems().add(userDTO);
+        });
+    }
+
     private void appendMessage(String contactId, String message) {
         messageHistory.putIfAbsent(contactId, new ArrayList<>());
         messageHistory.get(contactId).add(message);
@@ -170,7 +176,7 @@ public class ChatController {
     public void init(String myId) throws RuntimeException {
         this.senderId = myId;
 
-        StompClient.connect(myId, this::onMessageReceived, this::onPublicKeyReceived);
+        StompClient.connect(myId, this::onMessageReceived, this::onPublicKeyReceived, this::onContactAdded);
 
         contactsView.setCellFactory(lv -> new ListCell<>() {
             @Override
@@ -200,15 +206,15 @@ public class ChatController {
 
                 log.debug("Выбран контакт: {} (id={})", recipientName, recipientId);
 
+                updateMessageList();
                 if (sharedSecrets.containsKey(newVal.getId())) {
-                    updateMessageList();
                     return;
                 }
 
                 KeyParams keyParams = new KeyParams();
                 try {
                     keyParams = MessageSender.getKeyParams(myId, recipientId);
-                    log.debug("keyParams: {}", keyParams);
+                    log.debug("Параметры ключа: {}", keyParams);
                 } catch (Exception e) {
                     log.error(e.getMessage());
                 }
@@ -227,7 +233,7 @@ public class ChatController {
                                         .timestamp(LocalDateTime.now().toString())
                                         .build());
 
-                        log.debug("User {} send public key to {}", myId, recipientId);
+                        log.debug("Пользователь {} отправил публичный ключ {}", myId, recipientId);
                     } catch (Exception e) {
                         log.error(e.getMessage());
                     }
@@ -235,7 +241,7 @@ public class ChatController {
                     byte[] receivedPublicKey = null;
                     try {
                         receivedPublicKey = MessageSender.getPublicKey(myId, recipientId);
-                        log.debug("receivedPublicKey: {}", receivedPublicKey);
+                        log.debug("Полученный публичный ключ: {}", receivedPublicKey);
                     } catch (Exception e) {
                         log.error(e.getMessage());
                     }
@@ -243,7 +249,7 @@ public class ChatController {
                     if (receivedPublicKey != null) {
                         BigInteger sharedSecret = diffieHellman.computeSharedSecret(new BigInteger(1, receivedPublicKey));
                         sharedSecrets.put(recipientId, sharedSecret);
-                        log.debug("Shared secret with (by redis) {}, shared secret {}", recipientId, sharedSecret);
+                        log.debug("Установлен общий ключ (redis) {}, общий ключ {}", recipientId, sharedSecret);
 
                         SymmetricCipherContext symmetricCipherContext = new SymmetricCipherContext(
                                 new MacGuffin(),
