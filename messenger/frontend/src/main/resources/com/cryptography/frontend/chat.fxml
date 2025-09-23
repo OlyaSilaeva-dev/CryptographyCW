@@ -45,4 +45,7 @@
          </children>
       </VBox>
    </center>
+   <bottom>
+      <ListView fx:id="logView" prefHeight="80.0" />
+   </bottom>
 </BorderPane>

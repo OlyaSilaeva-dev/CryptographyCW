@@ -70,7 +70,7 @@ public class LoginController {
             Parent root = loader.load();
 
             ChatController chatController = loader.getController();
-            chatController.init(id);
+            chatController.init(id, name);
 
             Stage stage = new Stage();
             stage.setScene(new Scene(root));

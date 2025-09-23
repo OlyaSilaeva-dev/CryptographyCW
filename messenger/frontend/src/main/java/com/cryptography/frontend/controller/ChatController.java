@@ -43,6 +43,8 @@ public class ChatController {
     private Button sendButton;
     @FXML
     private Button attachButton;
+    @FXML
+    private ListView<String> logView;
 
     private File attachFile;
     private String attachFileName;
@@ -72,8 +74,9 @@ public class ChatController {
             String contactId = fromId.equals(senderId) ? msg.getRecipientId() : fromId;
 
             if (!sharedSecrets.containsKey(fromId)) {
-                log.warn("Нет общего секрета для сообщения от {}", fromId);
-                showAlert(ERR, "Нет общего секрета для сообщения от {" + fromId + "}");
+                String recipientName = contactsView.getSelectionModel().getSelectedItem().getName();
+                UILogger.warn("Нет общего секрета для сообщения от " + recipientName);
+                showAlert(ERR, "Нет общего секрета для сообщения от " + recipientName);
                 return;
             }
 
@@ -102,9 +105,11 @@ public class ChatController {
                     receivedFiles.get(contactId).add(receivedFile);
 
                     displayText = contact.getName() + ": отправил(а) файл " + msg.getFileName();
+                    UILogger.debug("Получен файл от " + contact.getName() + " " + msg.getFileName());
                 } else {
                     byte[] decryptedBytes = senderCipherContext.decrypt(msg.getMessage());
                     displayText = contact.getName() + ": " + new String(decryptedBytes, StandardCharsets.UTF_8);
+                    UILogger.debug("Получено сообщение от " + displayText);
                 }
 
                 appendMessage(contactId, displayText);
@@ -113,10 +118,8 @@ public class ChatController {
                     updateMessageList();
                 }
 
-                log.debug("Получено сообщение от {}: {}", contact.getName(), msg);
-
             } catch (Exception e) {
-                log.error("Ошибка дешифрования сообщения от {}: {}", contact.getName(), e.getMessage());
+                UILogger.error("Ошибка дешифрования сообщения от" + contact.getName() + ":" + e.getMessage());
                 appendMessage(contactId, contact.getName() + ": не удалось расшифровать сообщение");
             }
         });
@@ -132,7 +135,7 @@ public class ChatController {
                     BigInteger receivedPublicKey = new BigInteger(1, publicKey);
                     BigInteger sharedSecret = diffieHellman.computeSharedSecret(receivedPublicKey);
 
-                    log.debug("Установлен общий секрет с {}, общий секрет {}", from, sharedSecret);
+                    UILogger.debug("Установлен общий секрет с " + from);
                     sharedSecrets.put(from, sharedSecret);
 
                     SymmetricCipherContext context = new SymmetricCipherContext(
@@ -147,7 +150,7 @@ public class ChatController {
                     updateMessageList();
 
                 } catch (Exception e) {
-                    log.error(e.getMessage());
+                    UILogger.error("Ошибка при установлении общего секрета: " + e.getMessage());
                 }
             }
         });
@@ -156,6 +159,7 @@ public class ChatController {
     private void onContactAdded(UserDTO userDTO) {
         Platform.runLater(() -> {
             contactsView.getItems().add(userDTO);
+            UILogger.debug("Добавлен новый пользователь: " + userDTO.getName());
         });
     }
 
@@ -173,10 +177,12 @@ public class ChatController {
         listView.getItems().setAll(messages);
     }
 
-    public void init(String myId) throws RuntimeException {
+    public void init(String myId, String myName) throws RuntimeException {
         this.senderId = myId;
 
         StompClient.connect(myId, this::onMessageReceived, this::onPublicKeyReceived, this::onContactAdded);
+
+        logView.setItems(UILogger.getLogs());
 
         contactsView.setCellFactory(lv -> new ListCell<>() {
             @Override
@@ -191,11 +197,11 @@ public class ChatController {
             List<UserDTO> users = allUsers.stream()
                     .filter(user -> !Objects.equals(user.getId(), myId))
                     .collect(Collectors.toList());
-            log.debug("список пользователей: {}", users);
+            UILogger.debug("список пользователей: " + users);
 
             contactsView.getItems().setAll(users);
         } catch (Exception e) {
-            log.error("Ошибка загрузки списка пользователей {}",e.getMessage());
+            UILogger.error("Ошибка загрузки списка пользователей " + e.getMessage());
             throw new RuntimeException(e);
         }
 
@@ -204,7 +210,7 @@ public class ChatController {
                 recipientId = newVal.getId();
                 String recipientName = newVal.getName();
 
-                log.debug("Выбран контакт: {} (id={})", recipientName, recipientId);
+                UILogger.debug("Выбран контакт: " + recipientName);
 
                 updateMessageList();
                 if (sharedSecrets.containsKey(newVal.getId())) {
@@ -214,9 +220,9 @@ public class ChatController {
                 KeyParams keyParams = new KeyParams();
                 try {
                     keyParams = MessageSender.getKeyParams(myId, recipientId);
-                    log.debug("Параметры ключа: {}", keyParams);
+                    UILogger.debug("Параметры ключа: " + keyParams);
                 } catch (Exception e) {
-                    log.error(e.getMessage());
+                    UILogger.error("Ошибка при получении параметров ключа: " + e.getMessage());
                 }
 
                 if (keyParams != null) {
@@ -233,23 +239,23 @@ public class ChatController {
                                         .timestamp(LocalDateTime.now().toString())
                                         .build());
 
-                        log.debug("Пользователь {} отправил публичный ключ {}", myId, recipientId);
+                        UILogger.debug("Пользователь " + myName + " отправил публичный ключ " + recipientName);
                     } catch (Exception e) {
-                        log.error(e.getMessage());
+                        UILogger.error(e.getMessage());
                     }
 
                     byte[] receivedPublicKey = null;
                     try {
                         receivedPublicKey = MessageSender.getPublicKey(myId, recipientId);
-                        log.debug("Полученный публичный ключ: {}", receivedPublicKey);
+                        UILogger.debug("Получен публичный ключ(redis): " + Arrays.toString(receivedPublicKey) + " от пользователя " + recipientName);
                     } catch (Exception e) {
-                        log.error(e.getMessage());
+                        UILogger.error(e.getMessage());
                     }
 
                     if (receivedPublicKey != null) {
                         BigInteger sharedSecret = diffieHellman.computeSharedSecret(new BigInteger(1, receivedPublicKey));
                         sharedSecrets.put(recipientId, sharedSecret);
-                        log.debug("Установлен общий ключ (redis) {}, общий ключ {}", recipientId, sharedSecret);
+                        UILogger.debug("Установлен общий ключ (redis) с " + recipientName);
 
                         SymmetricCipherContext symmetricCipherContext = new SymmetricCipherContext(
                                 new MacGuffin(),
@@ -322,6 +328,7 @@ public class ChatController {
 
         if (!isSharedSecretEstablished()) {
             showAlert(ERR, "Общий секрет с {" + recipientId + "} не установлен, дождитесь обмена ключами.");
+            UILogger.error("Общий секрет с {" + recipientId + "} не установлен!");
             return;
         }
 
@@ -329,6 +336,7 @@ public class ChatController {
             if (attachFile != null) {
                 if (encryptedFileData == null) {
                     showAlert(ERR, "Файл не подготовлен к отправке");
+                    UILogger.error("Файл не подготовлен к отправке");
                     return;
                 }
                 ChatMessage fileMsg = ChatMessage.builder()
@@ -342,7 +350,7 @@ public class ChatController {
 
                 MessageSender.sendChatMessage(fileMsg);
                 appendMessage(recipientId, "Вы: отправили файл " + attachFileName);
-                log.info("Файл '{}' отправлен пользователю {}", attachFileName, recipientId);
+                UILogger.debug("Файл " + attachFileName + " отправлен пользователю " + contactsView.getSelectionModel().getSelectedItem().getName());
 
                 resetAttachedFile();
             } else {
@@ -356,11 +364,12 @@ public class ChatController {
 
                 MessageSender.sendChatMessage(msg);
                 appendMessage(recipientId, "Вы: " + text);
+                UILogger.debug("Отправлено сообщение: " + text + " пользователю " + contactsView.getSelectionModel().getSelectedItem().getName());
                 messageField.clear();
             }
         } catch (Exception e) {
-            log.error("Ошибка отправки: {}", e.getMessage());
-            showAlert(ERR, "Ошибка отправки: " + e.getMessage());
+            UILogger.error("Ошибка отправки: " + e.getMessage());
+            showAlert(ERR, "Ошибка отправки сообщения: " + e.getMessage());
 
             if (attachFile != null) {
                 resetAttachedFile();
@@ -387,11 +396,11 @@ public class ChatController {
             if (saveFile != null) {
                 Files.write(saveFile.toPath(), file.getFileData());
                 showAlert(SUCCESS, "Файл сохранен: " + saveFile.getName());
-                log.info("Файл '{}' сохранен в {}", file.getFileName(), saveFile.getAbsolutePath());
+                UILogger.debug("Файл " + file.getFileName() + "сохранен в " + saveFile.getAbsolutePath());
             }
         } catch (Exception e) {
-            log.error("Ошибка сохранения файла: {}", e.getMessage());
-            showAlert(ERR, "Ошибка сохранения файла: " + e.getMessage());
+            UILogger.error("Ошибка сохранения файла: " + e.getMessage());
+            showAlert(ERR, "Ошибка сохранения файла!");
         }
     }
 
@@ -412,12 +421,14 @@ public class ChatController {
 
     private void attachFile() {
         if (recipientId == null) {
-            showAlert(ERR, "Ошибка: сначала выберите получателя");
+            UILogger.error("Получатель не выбран");
+            showAlert(ERR, "Сначала выберите получателя!");
             return;
         }
 
         if (!isSharedSecretEstablished()) {
-            showAlert(ERR, "Ошибка: общий секрет не установлен");
+            UILogger.error("Общий секрет не установлен");
+            showAlert(ERR, "Общий секрет не установлен!");
             return;
         }
 
@@ -443,13 +454,14 @@ public class ChatController {
                 SymmetricCipherContext symmetricCipherContext = cipherContexts.get(recipientId);
                 this.encryptedFileData = symmetricCipherContext.encrypt(fileData);
                 messageField.setPromptText("Файл: " + file.getName() + " (" + formatFileSize(file.length()) + ")");
-
-                log.debug("Файл {} подготовлен к отправке", file.getName());
+                UILogger.debug("Файл " + file.getName() + " зашифрован");
             } catch (IOException e) {
-                showAlert(ERR, "Ошибка чтения файла: " + e.getMessage());
+                showAlert(ERR, "Ошибка чтения файла!");
+                UILogger.error("Ошибка чтения файла: " + e.getMessage());
                 resetAttachedFile();
             } catch (Exception e) {
-                showAlert(ERR, "Ошибка шифрования: " + e.getMessage());
+                showAlert(ERR, "Ошибка шифрования!");
+                UILogger.error("Ошибка шифрования: " + e.getMessage());
                 resetAttachedFile();
             }
         }
