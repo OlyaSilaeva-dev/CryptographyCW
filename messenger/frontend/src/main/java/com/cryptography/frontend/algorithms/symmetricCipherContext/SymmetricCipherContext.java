@@ -54,8 +54,6 @@ public class SymmetricCipherContext {
         int blockSize = this.cipher.getBlockSize();
 
         plaintext = applyPadding(plaintext, blockSize);
-        log.info("Plaintext with padding: {}", Arrays.toString(plaintext));
-
         int blockCnt = (int) Math.ceil(plaintext.length / (double) blockSize);
         byte[][] blocks = new byte[blockCnt][blockSize];
 
@@ -63,7 +61,6 @@ public class SymmetricCipherContext {
             System.arraycopy(plaintext, i * blockSize, blocks[i], 0, blockSize);
         }
 
-        log.info(Arrays.toString(blocks));
         return switch (encryptionMode) {
             case ECB -> ECBEncrypt(blocks, blockSize, blockCnt);
             case CBC -> CBCEncrypt(blocks, blockSize, blockCnt);
