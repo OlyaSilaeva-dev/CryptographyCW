@@ -2,7 +2,7 @@ package com.cryptography.messenger.enity;
 
 import com.cryptography.messenger.enity.enums.EncryptionMode;
 import com.cryptography.messenger.enity.enums.PaddingMode;
-import com.cryptography.messenger.enity.enums.SymmetricCipher;
+import com.cryptography.messenger.enity.enums.SymmetricCipherEnum;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -28,12 +28,15 @@ public class Chat {
     @JoinColumn(name = "second_user_id", nullable = false)
     private User secondUser;
 
+    @Column(name = "symmetric_cipher")
     @Enumerated(EnumType.STRING)
-    private SymmetricCipher symmetricCipher;
+    private SymmetricCipherEnum symmetricCipher;
 
+    @Column(name = "encryption_mode")
     @Enumerated(EnumType.STRING)
     private EncryptionMode encryptionMode;
 
+    @Column(name = "padding_mode")
     @Enumerated(EnumType.STRING)
     private PaddingMode paddingMode;
 }

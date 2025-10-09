@@ -38,7 +38,7 @@ public class MessageController {
 
     @PostMapping("/save-public-key")
     public ResponseEntity<Void> sendPublicKey(@RequestBody ChatMessage message) {
-        String keyPrefix = "dh:" + message.getSenderId() + ":" + message.getRecipientId();
+        String keyPrefix = "dh:" + message.getChatId() + ":" + message.getRecipientId();
         redis.opsForValue().set(keyPrefix + ":public-key", message.getMessage());
         producer.send(CHAT_KEY_EXCHANGE_TOPIC, message);
         return ResponseEntity.ok().build();
@@ -51,9 +51,9 @@ public class MessageController {
     }
 
     @GetMapping("/get-public-key")
-    public ResponseEntity<byte[]> getPublicKey(@RequestParam String senderId,
+    public ResponseEntity<byte[]> getPublicKey(@RequestParam String chatId,
                                                @RequestParam String recipientId) {
-        String keyPrefix = "dh:" + recipientId + ":" + senderId;
+        String keyPrefix = "dh:" + chatId + ":" + recipientId;
         byte[] publicKey = redis.opsForValue().get(keyPrefix + ":public-key");
         log.info("get public key: {}", publicKey);
         if (publicKey == null) {

@@ -1,6 +1,6 @@
 package com.cryptography.messenger.dto;
 
-import com.cryptography.messenger.enity.Users;
+import com.cryptography.messenger.enity.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,7 +13,7 @@ public class UserDTO {
     private String id;
     private String name;
 
-    public UserDTO(Users user) {
+    public UserDTO(User user) {
         id = user.getId().toString();
         name = user.getUsername();
     }

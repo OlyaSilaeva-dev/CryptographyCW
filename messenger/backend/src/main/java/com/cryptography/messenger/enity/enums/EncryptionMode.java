@@ -1,5 +1,5 @@
-package com.cryptography.frontend.algorithms.enums;
+package com.cryptography.messenger.enity.enums;
 
 public enum EncryptionMode {
-    ECB, CBC, PCBC, CFB, OFB, CTR, RandomDelta
-    }
+    ECB, CBC, PCBC, CFB, OFB, CTR, RandomDelta;
+}

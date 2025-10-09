@@ -1,11 +1,10 @@
 package com.cryptography.messenger.enity;
 
+import com.cryptography.messenger.enity.enums.MessageStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.Date;
 
 @Data
 @Builder

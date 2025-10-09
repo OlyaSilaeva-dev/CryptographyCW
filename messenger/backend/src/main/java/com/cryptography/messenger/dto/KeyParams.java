@@ -10,8 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class KeyParams {
-//    private String senderId;
-//    private String recipientId;
     private String p;
     private String g;
 }

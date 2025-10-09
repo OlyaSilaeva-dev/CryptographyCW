@@ -1,5 +1,6 @@
 package com.cryptography.frontend.entity;
 
+import com.cryptography.frontend.entity.enums.MessageStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

@@ -16,12 +16,12 @@ public class MessageSender {
     private static final String BASE_URL = "http://localhost:8080/api/v1/messages";
 
     public static void sendChatMessage(ChatMessage message) throws Exception {
-        String token = SessionManager.getInstance().getToken(message.getSenderId());
+        String token = SessionManager.getInstance().getToken();
         String json = toJson(message);
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(BASE_URL + "/send-message"))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", BEARER + token)
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
@@ -29,12 +29,12 @@ public class MessageSender {
     }
 
     public static void sendPublicKeyMessage(ChatMessage message) throws Exception {
-        String token = SessionManager.getInstance().getToken(message.getSenderId());
+        String token = SessionManager.getInstance().getToken();
         String json = toJson(message);
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(BASE_URL + "/save-public-key"))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", BEARER + token)
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
@@ -44,14 +44,14 @@ public class MessageSender {
     public static KeyParams getKeyParams(String senderId, String recipientId) throws Exception {
         String encodedSenderId = URLEncoder.encode(senderId, StandardCharsets.UTF_8);
         String encodedRecipientId = URLEncoder.encode(recipientId, StandardCharsets.UTF_8);
-        String token = SessionManager.getInstance().getToken(senderId);
+        String token = SessionManager.getInstance().getToken();
 
         String url = String.format("%s/get-params?senderId=%s&recipientId=%s",
                 BASE_URL, encodedSenderId, encodedRecipientId);
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", BEARER + token)
                 .GET()
                 .build();
 
@@ -64,16 +64,16 @@ public class MessageSender {
         }
     }
 
-    public static byte[] getPublicKey(String senderId, String recipientId) throws Exception {
-        String encodedSenderId = URLEncoder.encode(senderId, StandardCharsets.UTF_8);
+    public static byte[] getPublicKey(String chatId, String recipientId) throws Exception {
+        String encodedChatId = URLEncoder.encode(chatId, StandardCharsets.UTF_8);
         String encodedRecipientId = URLEncoder.encode(recipientId, StandardCharsets.UTF_8);
-        String token = SessionManager.getInstance().getToken(senderId);
+        String token = SessionManager.getInstance().getToken();
 
-        String url = String.format("%s/get-public-key?senderId=%s&recipientId=%s",
-                BASE_URL, encodedSenderId, encodedRecipientId);
+        String url = String.format("%s/get-public-key?chatId=%s&recipientId=%s",
+                BASE_URL, encodedChatId, encodedRecipientId);
 
         HttpRequest request = HttpRequest.newBuilder()
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", BEARER + token)
                 .uri(URI.create(url))
                 .GET()
                 .build();

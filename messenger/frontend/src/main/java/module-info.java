@@ -33,4 +33,6 @@ module com.cryptography.frontend {
     opens com.cryptography.frontend.stompclient to javafx.fxml;
     exports com.cryptography.frontend.context;
     opens com.cryptography.frontend.context to javafx.fxml;
+    exports com.cryptography.frontend.entity.enums;
+    opens com.cryptography.frontend.entity.enums to javafx.fxml;
 }

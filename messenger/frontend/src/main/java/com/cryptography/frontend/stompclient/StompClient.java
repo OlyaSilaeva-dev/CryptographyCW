@@ -1,5 +1,7 @@
 package com.cryptography.frontend.stompclient;
 
+import com.cryptography.frontend.dto.ChatDTO;
+import com.cryptography.frontend.dto.NewChatDTO;
 import com.cryptography.frontend.dto.UserDTO;
 import com.cryptography.frontend.entity.ChatMessage;
 import lombok.extern.slf4j.Slf4j;
@@ -21,14 +23,15 @@ public class StompClient {
      * @param userId    ID текущего пользователя
      * @param onMessage функция, вызываемая при получении нового сообщения
      */
-    public static void connect(String userId, Consumer<ChatMessage> onMessage, Consumer<ChatMessage> onPublicKeyReceived, Consumer<UserDTO> onContactAdded) {
+    public static void connect(String userId, Consumer<ChatMessage> onMessage, Consumer<ChatMessage> onPublicKeyReceived,
+                               Consumer<UserDTO> onUserAdded, Consumer<ChatDTO> onChatAdded, Consumer<String> onChatRemoved) {
         String url = "ws://localhost:8080/ws";
 
         WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
         stompClient.setInboundMessageSizeLimit(1024 * 1024);
         stompClient.setMessageConverter(new MappingJackson2MessageConverter());
 
-        stompClient.connect(url, new StompSessionHandlerAdapter() {
+        stompClient.connectAsync(url, new StompSessionHandlerAdapter() {
             @Override
             public void handleTransportError(StompSession session, Throwable exception) {
                 onError(exception);
@@ -37,8 +40,8 @@ public class StompClient {
             @Override
             public void afterConnected(StompSession session, StompHeaders connectedHeaders) {
                 stompSession = session;
-                System.out.println("Connected to server");
-                onConnected(userId, stompSession, onMessage, onPublicKeyReceived, onContactAdded);
+                log.info("Connected to server");
+                onConnected(userId, stompSession, onMessage, onPublicKeyReceived, onUserAdded, onChatAdded, onChatRemoved);
             }
 
             @Override
@@ -49,7 +52,7 @@ public class StompClient {
     }
 
     private static void onConnected(String userId, StompSession stompSession, Consumer<ChatMessage> onMessage, Consumer<ChatMessage> onPublicKeyReceived,
-                                    Consumer<UserDTO> onContactAdded) {
+                                    Consumer<UserDTO> onContactAdded, Consumer<ChatDTO> onChatAdded, Consumer<String> onChatRemoved) {
         stompSession.subscribe("/topic/user." + userId, new StompFrameHandler() {
             @Override
             public Type getPayloadType(StompHeaders headers) {
@@ -59,7 +62,7 @@ public class StompClient {
             @Override
             public void handleFrame(StompHeaders headers, Object payload) {
                 ChatMessage message = (ChatMessage) payload;
-                System.out.println("Received message: " + message);
+                log.info("Received message: {}", message);
                 onMessage.accept(message);
             }
         });
@@ -74,8 +77,37 @@ public class StompClient {
             @Override
             public void handleFrame(StompHeaders headers, Object payload) {
                 UserDTO userDTO = (UserDTO) payload;
-                log.info("Новый пользователь: " + userDTO);
+                log.info("Новый пользователь: {}",userDTO);
                 onContactAdded.accept(userDTO);
+            }
+        });
+
+        stompSession.subscribe("/topic/chats/add", new StompFrameHandler() {
+            @Override
+            public Type getPayloadType(StompHeaders headers) {
+                return NewChatDTO.class;
+            }
+
+            @Override
+            public void handleFrame(StompHeaders headers, Object payload) {
+                ChatDTO chatDTO = (ChatDTO) payload;
+                log.info("Новый чат: {}", chatDTO);
+                onChatAdded.accept(chatDTO);
+            }
+        });
+
+        stompSession.subscribe("/topic/chats/delete", new StompFrameHandler() {
+
+            @Override
+            public Type getPayloadType(StompHeaders headers) {
+                return String.class;
+            }
+
+            @Override
+            public void handleFrame(StompHeaders headers, Object payload) {
+                String chatId = (String) payload;
+                log.info("Чат {} удален", chatId);
+                onChatRemoved.accept(chatId);
             }
         });
 
@@ -88,13 +120,13 @@ public class StompClient {
             @Override
             public void handleFrame(StompHeaders headers, Object payload) {
                 ChatMessage message = (ChatMessage) payload;
-                System.out.println("Received message (key): " + payload.toString());
+                log.info("Received message (key): {}",payload.toString());
                 onPublicKeyReceived.accept(message);
             }
         });
     }
 
     private static void onError(Throwable error) {
-        System.err.println("Error connecting: " + error.getMessage());
+        log.error("Error connecting: {}", error.getMessage());
     }
 }

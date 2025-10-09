@@ -8,7 +8,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<VBox alignment="CENTER" prefHeight="306.0" prefWidth="461.0" spacing="10" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cryptography.frontend.controller.ChatAdditionWindow">
+<VBox alignment="CENTER" prefHeight="306.0" prefWidth="461.0" spacing="10" style="-fx-border-color: silver;" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cryptography.frontend.controller.ChatAdditionWindow">
     <padding>
         <Insets left="10.0" right="10.0" />
     </padding>
@@ -28,7 +28,7 @@
                   <Insets left="20.0" right="20.0" />
                </HBox.margin>
             </Label>
-            <ComboBox fx:id="userComboBox" editable="true" prefWidth="150.0" promptText="имя собеседника" />
+            <ComboBox fx:id="userComboBox" prefWidth="150.0" promptText="имя собеседника" />
          </children>
       </HBox>
       <HBox prefHeight="28.0" prefWidth="330.0">
@@ -38,7 +38,7 @@
                   <Insets left="20.0" right="20.0" />
                </HBox.margin>
             </Label>
-            <ComboBox fx:id="algorithmComboBox" editable="true" prefWidth="150.0" promptText="алгоритм" />
+            <ComboBox fx:id="cipherComboBox" prefWidth="150.0" promptText="алгоритм" />
          </children>
       </HBox>
       <HBox prefHeight="28.0" prefWidth="330.0">
@@ -48,7 +48,7 @@
                   <Insets left="20.0" right="20.0" />
                </HBox.margin>
             </Label>
-            <ComboBox fx:id="cipherModeComboBox" editable="true" prefWidth="150.0" promptText="режим шифрования" />
+            <ComboBox fx:id="encryptionModeComboBox" prefWidth="150.0" promptText="режим шифрования" />
          </children>
       </HBox>
       <HBox prefHeight="28.0" prefWidth="330.0">
@@ -58,13 +58,13 @@
                   <Insets left="20.0" right="20.0" />
                </HBox.margin>
             </Label>
-            <ComboBox fx:id="paddingModeComboBox" editable="true" prefWidth="150.0" promptText="режим набивки" />
+            <ComboBox fx:id="paddingModeComboBox" prefWidth="150.0" promptText="режим набивки" />
          </children>
       </HBox>
       <VBox alignment="TOP_CENTER" prefHeight="74.0" prefWidth="441.0">
          <children>
-            <Button fx:id="chatCreationButton" mnemonicParsing="false" onAction="#createChat" prefHeight="25.0" prefWidth="132.0" text="Создать чат" />
-            <Button fx:id="exitButton" mnemonicParsing="false" onAction="#onReturnButton" prefHeight="29.0" prefWidth="133.0" text="Вернуться к чатам">
+            <Button fx:id="chatCreationButton" mnemonicParsing="false" prefHeight="25.0" prefWidth="132.0" text="Создать чат" />
+            <Button fx:id="exitButton" mnemonicParsing="false" prefHeight="29.0" prefWidth="133.0" text="Вернуться к чатам">
                <VBox.margin>
                   <Insets top="5.0" />
                </VBox.margin>

@@ -1,7 +1,7 @@
 package com.cryptography.messenger.controller;
 
 import com.cryptography.messenger.dto.UserDTO;
-import com.cryptography.messenger.enity.Users;
+import com.cryptography.messenger.enity.User;
 import com.cryptography.messenger.service.UserService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,7 @@ public class UserController {
 
     @GetMapping("/all")
     public ResponseEntity<List<UserDTO>> getUsers() {
-        List<Users> users = userService.findAll();
+        List<User> users = userService.findAll();
         List<UserDTO> dtos = users.stream()
                 .map(user -> UserDTO.builder()
                         .id(user.getId().toString())

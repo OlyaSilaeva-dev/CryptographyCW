@@ -1,24 +1,23 @@
 package com.cryptography.frontend.context;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.HashMap;
 import java.util.Map;
 
+@Getter
+@Setter
 public class SessionManager {
     private static final SessionManager INSTANCE = new SessionManager();
-    private final Map<String, String> tokens = new HashMap<>();
+    private String token;
+    private String userId;
+    private String userName;
 
     private SessionManager() {}
 
     public static SessionManager getInstance() {
         return INSTANCE;
-    }
-
-    public void setToken(String userId, String token) {
-        tokens.put(userId, token);
-    }
-
-    public String getToken(String userId) {
-        return tokens.get(userId);
     }
 }
 

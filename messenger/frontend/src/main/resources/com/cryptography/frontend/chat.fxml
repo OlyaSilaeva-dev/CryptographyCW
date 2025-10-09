@@ -11,41 +11,67 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="446.0" prefWidth="473.0" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cryptography.frontend.controller.ChatController">
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="491.0" prefWidth="556.0" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cryptography.frontend.controller.ChatController">
    <left>
       <VBox prefHeight="446.0" prefWidth="114.0" BorderPane.alignment="CENTER">
-         <children>
-            <Label prefHeight="21.0" prefWidth="99.0" text="Chats" />
-            <ListView fx:id="contactsView" fixedCellSize="0.0" prefHeight="424.0" prefWidth="123.0" />
-         </children>
+         <Label prefHeight="23.0" prefWidth="99.0" text="Чаты">
+            <VBox.margin>
+               <Insets left="5.0" />
+            </VBox.margin></Label>
+         <ListView fx:id="chatsView" fixedCellSize="0.0" prefHeight="424.0" prefWidth="123.0" />
       </VBox>
    </left>
    <center>
       <VBox prefHeight="200.0" prefWidth="100.0" BorderPane.alignment="CENTER">
-         <children>
-            <ListView fx:id="listView" prefHeight="419.0" prefWidth="359.0" />
-            <HBox prefHeight="21.0" prefWidth="359.0">
-               <children>
-                  <Button fx:id="attachButton" mnemonicParsing="false" prefHeight="16.0" prefWidth="23.0">
-                     <graphic>
-                        <ImageView fitHeight="17.0" fitWidth="14.0" scaleX="1.5" scaleY="1.25" scaleZ="1.5">
-                           <image>
-                              <Image url="@icons8-attach-25.png" />
-                           </image>
-                        </ImageView>
-                     </graphic>
-                  </Button>
-                  <TextField fx:id="messageField" prefHeight="25.0" prefWidth="263.0">
-                     <HBox.margin>
-                        <Insets />
-                     </HBox.margin></TextField>
-                  <Button fx:id="sendButton" mnemonicParsing="false" prefHeight="25.0" prefWidth="65.0" text="Send" />
-               </children>
-            </HBox>
-         </children>
+         <ListView fx:id="listView" prefHeight="419.0" prefWidth="359.0" />
+         <HBox prefHeight="21.0" prefWidth="359.0">
+            <Button fx:id="attachButton" mnemonicParsing="false" prefHeight="16.0" prefWidth="23.0">
+               <graphic>
+                  <ImageView fitHeight="17.0" fitWidth="14.0" scaleX="1.5" scaleY="1.25" scaleZ="1.5">
+                     <Image url="@icons8-attach-25.png" />
+                  </ImageView>
+               </graphic>
+            </Button>
+            <TextField fx:id="messageField" prefHeight="26.0" prefWidth="348.0">
+               <HBox.margin>
+                  <Insets />
+               </HBox.margin>
+            </TextField>
+            <Button fx:id="sendButton" mnemonicParsing="false" prefHeight="26.0" prefWidth="62.0">
+               <graphic>
+                  <ImageView fitHeight="17.0" fitWidth="14.0" scaleX="1.5" scaleY="1.25" scaleZ="1.5">
+                     <Image url="@icons8-sent-40.png" />
+                  </ImageView>
+               </graphic>
+            </Button>
+         </HBox>
       </VBox>
    </center>
    <bottom>
-      <ListView fx:id="logView" prefHeight="80.0" />
+      <ListView fx:id="logView" prefHeight="81.0" prefWidth="466.0" />
    </bottom>
+   <top>
+      <HBox alignment="TOP_RIGHT" prefHeight="22.0" prefWidth="474.0" style="-fx-background-color: #F0F0F0; -fx-border-color: #C0C0C0;" BorderPane.alignment="CENTER">
+         <children>
+            <Button fx:id="addChatButton" mnemonicParsing="false" prefHeight="14.0" prefWidth="101.0" text="Создать чат">
+               <HBox.margin>
+                  <Insets bottom="3.0" left="5.0" top="3.0" />
+               </HBox.margin>
+            </Button>
+            <Button fx:id="exitButton" mnemonicParsing="false" prefHeight="25.0" prefWidth="60.0" text="Выйти">
+               <HBox.margin>
+                  <Insets bottom="3.0" left="5.0" right="5.0" top="3.0" />
+               </HBox.margin>
+            </Button>
+            <Button mnemonicParsing="false" prefHeight="26.0" prefWidth="142.0" text="Удалить пользователя">
+               <HBox.margin>
+                  <Insets right="5.0" top="3.0" />
+               </HBox.margin>
+               <opaqueInsets>
+                  <Insets />
+               </opaqueInsets>
+            </Button>
+         </children>
+      </HBox>
+   </top>
 </BorderPane>

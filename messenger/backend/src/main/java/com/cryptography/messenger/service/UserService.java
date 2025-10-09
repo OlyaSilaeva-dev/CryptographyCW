@@ -1,18 +1,15 @@
 package com.cryptography.messenger.service;
 
-import com.cryptography.messenger.dto.AuthRequest;
 import com.cryptography.messenger.dto.AuthResponse;
 import com.cryptography.messenger.dto.UserDTO;
-import com.cryptography.messenger.enity.Users;
+import com.cryptography.messenger.enity.User;
 import com.cryptography.messenger.repository.UserRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
-import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
@@ -27,7 +24,7 @@ public class UserService {
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public void registerUser(String username, String password) {
-        Users user = new Users();
+        User user = new User();
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(password));
         try {
@@ -41,9 +38,10 @@ public class UserService {
 
     public AuthResponse login(String username, String password) {
         log.info("Login attempt: {}", username);
-        Users user = userRepository.findByUsername(username).orElse(null);
+        User user = userRepository.findByUsername(username).orElse(null);
 
         if (user == null || !passwordEncoder.matches(password, user.getPassword())) {
+            log.error("Неверное имя пользователя или пароль");
             throw new IllegalArgumentException("Неверное имя пользователя или пароль");
         }
 
@@ -51,11 +49,11 @@ public class UserService {
         return new AuthResponse(user.getId().toString(), token);
     }
 
-    public Users findByUsername(String username) {
+    public User findByUsername(String username) {
         return userRepository.findByUsername(username).orElse(null);
     }
 
-    public List<Users> findAll() {
+    public List<User> findAll() {
         return userRepository.findAll();
     }
 }

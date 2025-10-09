@@ -1,22 +1,31 @@
 package com.cryptography.frontend.controller;
 
-import com.cryptography.frontend.apiclient.MessageSender;
-import com.cryptography.frontend.apiclient.UsersClient;
-import com.cryptography.frontend.dto.UserDTO;
-import com.cryptography.frontend.stompclient.StompClient;
-import com.cryptography.frontend.algorithms.DiffieHellman;
-import com.cryptography.frontend.algorithms.MacGuffin.MacGuffin;
+import com.cryptography.frontend.algorithms.RC5.RC5;
 import com.cryptography.frontend.algorithms.enums.EncryptionMode;
 import com.cryptography.frontend.algorithms.enums.PaddingMode;
+import com.cryptography.frontend.algorithms.interfaces.SymmetricCipher;
+import com.cryptography.frontend.apiclient.ChatClient;
+import com.cryptography.frontend.apiclient.MessageSender;
+import com.cryptography.frontend.context.SessionManager;
+import com.cryptography.frontend.dto.ChatDTO;
+import com.cryptography.frontend.dto.UserDTO;
+import com.cryptography.frontend.algorithms.DiffieHellman;
+import com.cryptography.frontend.algorithms.MacGuffin.MacGuffin;
 import com.cryptography.frontend.algorithms.symmetricCipherContext.SymmetricCipherContext;
 import com.cryptography.frontend.dto.KeyParams;
 import com.cryptography.frontend.entity.ChatMessage;
 import com.cryptography.frontend.entity.ReceivedFile;
+import com.cryptography.frontend.stompclient.StompClient;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import lombok.extern.slf4j.Slf4j;
 
@@ -27,14 +36,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static com.cryptography.frontend.controller.ControllerUtils.*;
 
 @Slf4j
 public class ChatController {
     @FXML
-    private ListView<UserDTO> contactsView;
+    public Button exitButton;
+    @FXML
+    public Button addChatButton;
+    @FXML
+    private ListView<ChatDTO> chatsView;
     @FXML
     private ListView<String> listView;
     @FXML
@@ -50,227 +62,226 @@ public class ChatController {
     private String attachFileName;
     private byte[] encryptedFileData;
 
-    private String senderId;
-    private String recipientId = null;
+    private ChatDTO selectedChat;
+    private UserDTO currentUser;
+    private UserDTO recipient;
 
-    private Map<String, SymmetricCipherContext> cipherContexts = new HashMap<>();
-    DiffieHellman diffieHellman;
+    // Map<chatId, smth>
+    private final Map<String, DiffieHellman> diffieHellmanMap = new HashMap<>();
+    private final Map<String, SymmetricCipherContext> cipherContexts = new HashMap<>();
+    private final Map<String, BigInteger> sharedSecrets = new HashMap<>();
 
     private final Map<String, List<String>> messageHistory = new HashMap<>();
     private final Map<String, List<ReceivedFile>> receivedFiles = new HashMap<>();
 
-    /// Map<recipient, key>
-    private final Map<String, BigInteger> sharedSecrets = new HashMap<>();
-
     private boolean isSharedSecretEstablished() {
-        return  recipientId != null
-                && sharedSecrets.containsKey(recipientId)
-                && sharedSecrets.get(recipientId) != null;
+        return selectedChat != null
+                && sharedSecrets.containsKey(selectedChat.getChatId())
+                && sharedSecrets.get(selectedChat.getChatId()) != null;
     }
 
     private void onMessageReceived(ChatMessage msg) {
         Platform.runLater(() -> {
-            String fromId = msg.getSenderId();
-            String contactId = fromId.equals(senderId) ? msg.getRecipientId() : fromId;
+            if (msg.getSenderId().equals(currentUser.getId())) return;
 
-            if (!sharedSecrets.containsKey(fromId)) {
-                String recipientName = contactsView.getSelectionModel().getSelectedItem().getName();
-                UILogger.warn("Нет общего секрета для сообщения от " + recipientName);
-                showAlert(ERR, "Нет общего секрета для сообщения от " + recipientName);
+            String chatId = msg.getChatId();
+
+            ChatDTO chat = chatsView.getItems().stream()
+                    .filter(c -> c.getChatId().equals(chatId))
+                    .findFirst()
+                    .orElse(null);
+
+            if (chat == null) {
+                UILogger.warn("Сообщение для неизвестного чата " + chatId);
                 return;
             }
 
-            UserDTO contact = contactsView.getItems().stream()
-                    .filter(u -> u.getId().equals(contactId))
-                    .findFirst()
-                    .orElseGet(() -> {
-                        UserDTO user = UserDTO.builder()
-                                .id(contactId)
-                                .name("Unknown (" + contactId + ")")
-                                .build();
-                        contactsView.getItems().add(user);
-                        return user;
-                    });
+            UserDTO opponent = chat.getFirstUser().getId().equals(currentUser.getId())
+                    ? chat.getSecondUser()
+                    : chat.getFirstUser();
+
+            if (!sharedSecrets.containsKey(chat.getChatId())) {
+                UILogger.warn("Нет общего секрета для сообщения с " + opponent.getName());
+                showAlert(ERR, "Нет общего секрета для сообщения с " + opponent.getName());
+                return;
+            }
 
             try {
-                SymmetricCipherContext senderCipherContext = cipherContexts.get(contactId);
+                SymmetricCipherContext cipherContext = cipherContexts.get(chat.getChatId());
+                if (cipherContext == null) {
+                    UILogger.error("Нет SymmetricCipherContext для чата " + chat.getChatId());
+                    return;
+                }
+
                 String displayText;
 
                 if (msg.isFile()) {
-                    byte[] decryptedFileData = senderCipherContext.decrypt(msg.getMessage());
-
-                    ReceivedFile receivedFile = new ReceivedFile(msg.getFileName(), decryptedFileData, contact.getId());
-
-                    receivedFiles.putIfAbsent(contactId, new ArrayList<>());
-                    receivedFiles.get(contactId).add(receivedFile);
-
-                    displayText = contact.getName() + ": отправил(а) файл " + msg.getFileName();
-                    UILogger.debug("Получен файл от " + contact.getName() + " " + msg.getFileName());
+                    byte[] decryptedFileData = cipherContext.decrypt(msg.getMessage());
+                    ReceivedFile receivedFile = new ReceivedFile(msg.getFileName(), decryptedFileData, opponent.getId());
+                    receivedFiles.putIfAbsent(chatId, new ArrayList<>());
+                    receivedFiles.get(chatId).add(receivedFile);
+                    displayText = opponent.getName() + ": отправил(а) файл " + msg.getFileName();
+                    UILogger.debug("Получен файл от " + opponent.getName() + " " + msg.getFileName());
                 } else {
-                    byte[] decryptedBytes = senderCipherContext.decrypt(msg.getMessage());
-                    displayText = contact.getName() + ": " + new String(decryptedBytes, StandardCharsets.UTF_8);
+                    byte[] decryptedBytes = cipherContext.decrypt(msg.getMessage());
+                    displayText = opponent.getName() + ": " + new String(decryptedBytes, StandardCharsets.UTF_8);
                     UILogger.debug("Получено сообщение от " + displayText);
                 }
 
-                appendMessage(contactId, displayText);
+                appendMessage(chatId, displayText);
 
-                if (contactId.equals(recipientId)) {
+                ChatDTO selectedChat = chatsView.getSelectionModel().getSelectedItem();
+                if (selectedChat != null && selectedChat.getChatId().equals(chatId)) {
                     updateMessageList();
                 }
 
             } catch (Exception e) {
-                UILogger.error("Ошибка дешифрования сообщения от" + contact.getName() + ":" + e.getMessage());
-                appendMessage(contactId, contact.getName() + ": не удалось расшифровать сообщение");
+                UILogger.error("Ошибка дешифрования сообщения от" + opponent.getName() + ":" + e.getMessage());
+                appendMessage(chatId, opponent.getName() + ": не удалось расшифровать сообщение");
             }
         });
     }
 
     private void onPublicKeyReceived(ChatMessage msg) {
         Platform.runLater(() -> {
-            String from = msg.getSenderId();
+            if (msg.getSenderId().equals(currentUser.getId())) return;
+
+            String chatId = msg.getChatId();
+            ChatDTO chat = chatsView.getItems().stream()
+                    .filter(chatDTO -> chatDTO.getChatId()
+                            .equals(chatId))
+                    .findFirst()
+                    .orElse(null);
+
+            if (chat == null) {
+                UILogger.warn("Чат не найден для получения публичного ключа");
+                return;
+            }
+
+            DiffieHellman dh = diffieHellmanMap.get(chatId);
+            if (dh == null) {
+                return;
+            }
+
+            UserDTO firstUser = chat.getFirstUser();
+            UserDTO from = firstUser.getId().equals(msg.getSenderId()) ? firstUser : chat.getSecondUser();
             byte[] publicKey = msg.getMessage();
 
-            if (diffieHellman != null && from.equals(recipientId)) {
-                try {
-                    BigInteger receivedPublicKey = new BigInteger(1, publicKey);
-                    BigInteger sharedSecret = diffieHellman.computeSharedSecret(receivedPublicKey);
+            try {
+                BigInteger sharedSecret = dh.computeSharedSecret(new BigInteger(1, publicKey));
+                UILogger.debug("Установлен общий секрет с " + from.getName() + ": " + sharedSecret);
 
-                    UILogger.debug("Установлен общий секрет с " + from);
-                    sharedSecrets.put(from, sharedSecret);
+                sharedSecrets.put(chatId, sharedSecret);
 
-                    SymmetricCipherContext context = new SymmetricCipherContext(
-                            new MacGuffin(),
-                            sharedSecrets.get(recipientId).toByteArray(),
-                            EncryptionMode.ECB,
-                            PaddingMode.PKCS7,
-                            new byte[0]
-                    );
-
-                    cipherContexts.put(from, context);
-                    updateMessageList();
-
-                } catch (Exception e) {
-                    UILogger.error("Ошибка при установлении общего секрета: " + e.getMessage());
-                }
+                SymmetricCipherContext context = getSymmetricCipherContextForChat(chat, sharedSecret);
+                cipherContexts.put(chatId, context);
+                updateMessageList();
+            } catch (Exception e) {
+                UILogger.error("Ошибка при установлении общего секрета: " + e.getMessage());
             }
         });
     }
 
-    private void onContactAdded(UserDTO userDTO) {
+    private void onChatAdded(ChatDTO chatDTO) {
         Platform.runLater(() -> {
-            contactsView.getItems().add(userDTO);
-            UILogger.debug("Добавлен новый пользователь: " + userDTO.getName());
+            chatsView.getItems().add(chatDTO);
+            UILogger.debug("Добавлен новый чат с "
+                    + chatDTO.getFirstUser().getName() + " и " + chatDTO.getSecondUser().getName());
+
         });
     }
 
-    private void appendMessage(String contactId, String message) {
-        messageHistory.putIfAbsent(contactId, new ArrayList<>());
-        messageHistory.get(contactId).add(message);
+    private void onChatRemoved(String chatId) {
+        Platform.runLater(() -> {
+            chatsView.getItems().removeIf(chat -> chat.getChatId().equals(chatId));
+            UILogger.debug("Удален чат " + chatId);
+        });
+    }
 
-        if (Objects.equals(recipientId, contactId)) {
+    private void appendMessage(String chatId, String message) {
+        messageHistory.putIfAbsent(chatId, new ArrayList<>());
+        messageHistory.get(chatId).add(message);
+
+        ChatDTO selectedChat = chatsView.getSelectionModel().getSelectedItem();
+        if (selectedChat != null && selectedChat.getChatId().equals(chatId)) {
             updateMessageList();
         }
     }
 
     private void updateMessageList() {
-        List<String> messages = messageHistory.getOrDefault(recipientId, new ArrayList<>());
+        ChatDTO selectedChat = chatsView.getSelectionModel().getSelectedItem();
+        if (selectedChat == null) return;
+
+        String chatId = selectedChat.getChatId();
+        List<String> messages = messageHistory.getOrDefault(chatId, new ArrayList<>());
         listView.getItems().setAll(messages);
     }
 
     public void init(String myId, String myName) throws RuntimeException {
-        this.senderId = myId;
+        this.currentUser = UserDTO.builder()
+                .id(myId)
+                .name(myName)
+                .build();
 
-        StompClient.connect(myId, this::onMessageReceived, this::onPublicKeyReceived, this::onContactAdded);
+        StompClient.connect(myId, this::onMessageReceived, this::onPublicKeyReceived, userDTO -> {
+        }, this::onChatAdded, this::onChatRemoved);
 
         logView.setItems(UILogger.getLogs());
 
-        contactsView.setCellFactory(lv -> new ListCell<>() {
-            @Override
-            protected void updateItem(UserDTO item, boolean empty) {
-                super.updateItem(item, empty);
-                setText(empty || item == null ? null : item.getName());
-            }
-        });
-
         try {
-            List<UserDTO> allUsers = UsersClient.getUsers(myId);
-            List<UserDTO> users = allUsers.stream()
-                    .filter(user -> !Objects.equals(user.getId(), myId))
-                    .collect(Collectors.toList());
-            UILogger.debug("список пользователей: " + users);
-
-            contactsView.getItems().setAll(users);
+            List<ChatDTO> chats = ChatClient.getChats(myId);
+            chatsView.getItems().setAll(chats);
+            UILogger.info("Список чатов: " + chatsView.getItems());
         } catch (Exception e) {
-            UILogger.error("Ошибка загрузки списка пользователей " + e.getMessage());
-            throw new RuntimeException(e);
+            UILogger.error(e.getMessage());
         }
+        chatsView.setCellFactory(lv -> new ListCell<>() {
+            private final HBox hBox = new HBox(10);
+            private final Label nameLabel = new Label();
+            private final Button deleteButton = new Button("Удалить");
 
-        contactsView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null) {
-                recipientId = newVal.getId();
-                String recipientName = newVal.getName();
+            {
+                HBox.setHgrow(nameLabel, Priority.ALWAYS);
+                nameLabel.setMaxWidth(Double.MAX_VALUE);
 
-                UILogger.debug("Выбран контакт: " + recipientName);
+                hBox.setStyle("-fx-alignment: center-left;");
+                hBox.getChildren().addAll(nameLabel, deleteButton);
 
-                updateMessageList();
-                if (sharedSecrets.containsKey(newVal.getId())) {
-                    return;
-                }
-
-                KeyParams keyParams = new KeyParams();
-                try {
-                    keyParams = MessageSender.getKeyParams(myId, recipientId);
-                    UILogger.debug("Параметры ключа: " + keyParams);
-                } catch (Exception e) {
-                    UILogger.error("Ошибка при получении параметров ключа: " + e.getMessage());
-                }
-
-                if (keyParams != null) {
-                    BigInteger p = new BigInteger(keyParams.getP(), 16);
-                    BigInteger g = new BigInteger(keyParams.getG(), 16);
-                    diffieHellman = new DiffieHellman(p, g);
-
-                    try {
-                        MessageSender.sendPublicKeyMessage(
-                                ChatMessage.builder()
-                                        .senderId(myId)
-                                        .recipientId(recipientId)
-                                        .message(bigIntToUnsignedBytes(diffieHellman.getPublicKey()))
-                                        .timestamp(LocalDateTime.now().toString())
-                                        .build());
-
-                        UILogger.debug("Пользователь " + myName + " отправил публичный ключ " + recipientName);
-                    } catch (Exception e) {
-                        UILogger.error(e.getMessage());
+                deleteButton.setOnAction(e -> {
+                    ChatDTO chatDTO = getItem();
+                    if (chatDTO != null) {
+                        try {
+                            ChatClient.removeChat(chatDTO.getChatId());
+                        } catch (Exception ex) {
+                            UILogger.error(ex.getMessage());
+                        }
                     }
+                });
+            }
 
-                    byte[] receivedPublicKey = null;
-                    try {
-                        receivedPublicKey = MessageSender.getPublicKey(myId, recipientId);
-                        UILogger.debug("Получен публичный ключ(redis): " + Arrays.toString(receivedPublicKey) + " от пользователя " + recipientName);
-                    } catch (Exception e) {
-                        UILogger.error(e.getMessage());
-                    }
+            @Override
+            protected void updateItem(ChatDTO chat, boolean empty) {
+                super.updateItem(chat, empty);
+                if (empty || chat == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    String myId = SessionManager.getInstance().getUserId();
+                    UserDTO opponent = chat.getFirstUser().getId().equals(myId)
+                            ? chat.getSecondUser()
+                            : chat.getFirstUser();
+                    nameLabel.setText(opponent.getName());
 
-                    if (receivedPublicKey != null) {
-                        BigInteger sharedSecret = diffieHellman.computeSharedSecret(new BigInteger(1, receivedPublicKey));
-                        sharedSecrets.put(recipientId, sharedSecret);
-                        UILogger.debug("Установлен общий ключ (redis) с " + recipientName);
-
-                        SymmetricCipherContext symmetricCipherContext = new SymmetricCipherContext(
-                                new MacGuffin(),
-                                sharedSecret.toByteArray(),
-                                EncryptionMode.ECB,
-                                PaddingMode.PKCS7,
-                                new byte[0]
-                        );
-                        cipherContexts.put(recipientId, symmetricCipherContext);
-
-                        updateMessageList();
-                    }
+                    hBox.setSpacing(10);
+                    hBox.setStyle("-fx-alignment: center-left;");
+                    setText(null);
+                    setGraphic(hBox);
                 }
             }
         });
+
+        chatsView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) ->
+                selectingChatFromChatsView(myId, myName, newVal));
 
         listView.setCellFactory(lv -> new ListCell<>() {
             private final HBox hbox = new HBox(5);
@@ -297,10 +308,10 @@ public class ChatController {
                     if (item.contains("отправил(а) файл")) {
                         label.setText(item);
 
-                        String contact = recipientId;
-                        if (contact != null && receivedFiles.containsKey(contact)) {
-                            List<ReceivedFile> files = receivedFiles.get(contact);
-                            fileRef = files.get(files.size() - 1); // последний файл
+                        String chatId = (selectedChat != null) ? selectedChat.getChatId() : null;
+                        if (chatId != null && receivedFiles.containsKey(chatId)) {
+                            List<ReceivedFile> files = receivedFiles.get(chatId);
+                            fileRef = files.get(files.size() - 1);
                         }
 
                         setGraphic(hbox);
@@ -312,23 +323,121 @@ public class ChatController {
             }
         });
 
-
+        addChatButton.setOnAction(e -> openChatAdditionWindow());
         sendButton.setOnAction(event -> send(myId));
         attachButton.setOnAction(event -> attachFile());
     }
 
-    private void send(String myId) {
-        String text = messageField.getText().trim();
-        if ((text.isEmpty() && attachFile == null) || recipientId == null) {
-            if (recipientId == null) {
-                showAlert(ERR, "Выберите получателя");
+    private void deleteChat(ChatDTO chatDTO) {
+        try {
+            ChatClient.removeChat(chatDTO.getChatId());
+            chatsView.getItems().remove(chatDTO);
+            UILogger.info("Чат " + chatDTO + " успешно удален");
+        } catch (Exception e) {
+            UILogger.error(e.getMessage());
+        }
+    }
+
+    private void openChatAdditionWindow() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/cryptography/frontend/chat_addition_window.fxml"));
+            Parent root = loader.load();
+
+            Stage stage = new Stage();
+            stage.setScene(new Scene(root));
+            stage.setTitle("Добавление чата");
+            stage.initOwner(addChatButton.getScene().getWindow());
+            stage.initModality(Modality.WINDOW_MODAL);
+            stage.show();
+
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void selectingChatFromChatsView(String myId, String myName, ChatDTO newVal) {
+        if (newVal != null) {
+            selectedChat = newVal;
+            recipient = myId.equals(newVal.getFirstUser().getId())
+                    ? newVal.getSecondUser()
+                    : newVal.getFirstUser();
+
+            UILogger.debug("Выбран контакт: " + recipient.getName());
+            updateMessageList();
+
+            String recipientId = recipient.getId();
+            if (sharedSecrets.containsKey(selectedChat.getChatId())) return;
+
+            try {
+                KeyParams keyParams = MessageSender.getKeyParams(myId, recipientId);
+                UILogger.debug("Параметры ключа: " + keyParams);
+
+                BigInteger p = new BigInteger(keyParams.getP(), 16);
+                BigInteger g = new BigInteger(keyParams.getG(), 16);
+                DiffieHellman diffieHellman = new DiffieHellman(p, g);
+                diffieHellmanMap.put(newVal.getChatId(), diffieHellman);
+
+
+                MessageSender.sendPublicKeyMessage(
+                        ChatMessage.builder()
+                                .chatId(newVal.getChatId())
+                                .senderId(myId)
+                                .recipientId(recipientId)
+                                .message(bigIntToUnsignedBytes(diffieHellman.getPublicKey()))
+                                .timestamp(LocalDateTime.now().toString())
+                                .build());
+
+                UILogger.debug("Пользователь " + myName + " отправил публичный ключ " + recipient.getName());
+
+                byte[] receivedPublicKey = MessageSender.getPublicKey(newVal.getChatId(), myId);
+                UILogger.debug("Получен публичный ключ(redis): " + Arrays.toString(receivedPublicKey) + " от пользователя " + recipient.getName());
+
+                if (receivedPublicKey != null) {
+                    BigInteger sharedSecret = diffieHellman.computeSharedSecret(new BigInteger(1, receivedPublicKey));
+                    sharedSecrets.put(newVal.getChatId(), sharedSecret);
+                    UILogger.debug("Установлен общий секрет (redis) с " + recipient.getName() + " : " + sharedSecret);
+                    SymmetricCipherContext symmetricCipherContext = getSymmetricCipherContextForChat(newVal, sharedSecret);
+                    cipherContexts.put(newVal.getChatId(), symmetricCipherContext);
+
+                    updateMessageList();
+                }
+            } catch (Exception e) {
+                UILogger.error(e.getMessage());
             }
+        }
+    }
+
+    private SymmetricCipherContext getSymmetricCipherContextForChat(ChatDTO chat, BigInteger sharedSecret) {
+        if (chat == null || sharedSecret == null) throw new IllegalArgumentException("chat or secret is null");
+        SymmetricCipher symmetricCipher = switch (chat.getSymmetricCipher()) {
+            case "RC5" -> new RC5(32, 16, 16);
+            case "MacGuffin" -> new MacGuffin();
+            default -> throw new IllegalStateException("Unexpected value: " + chat.getSymmetricCipher());
+        };
+
+        return new SymmetricCipherContext(
+                symmetricCipher,
+                bigIntToUnsignedBytes(sharedSecret),
+                EncryptionMode.valueOf(chat.getEncryptionMode()),
+                PaddingMode.valueOf(chat.getPaddingMode()),
+                new byte[0]
+        );
+    }
+
+
+    private void send(String myId) {
+        this.selectedChat = chatsView.getSelectionModel().getSelectedItem();
+        if (selectedChat == null) {
+            showAlert(ERR, "Выберите получателя");
             return;
         }
 
+        String chatId = selectedChat.getChatId();
+        String text = messageField.getText().trim();
+
         if (!isSharedSecretEstablished()) {
-            showAlert(ERR, "Общий секрет с {" + recipientId + "} не установлен, дождитесь обмена ключами.");
-            UILogger.error("Общий секрет с {" + recipientId + "} не установлен!");
+            String recipName = recipient != null ? recipient.getName() : "получатель";
+            showAlert(ERR, "Общий секрет с {" + recipName + "} не установлен, обмен ключами не завершён.");
             return;
         }
 
@@ -339,9 +448,11 @@ public class ChatController {
                     UILogger.error("Файл не подготовлен к отправке");
                     return;
                 }
+
                 ChatMessage fileMsg = ChatMessage.builder()
+                        .chatId(chatId)
                         .senderId(myId)
-                        .recipientId(recipientId)
+                        .recipientId(recipient.getId())
                         .message(encryptedFileData)
                         .fileName(attachFileName)
                         .isFile(true)
@@ -349,22 +460,23 @@ public class ChatController {
                         .build();
 
                 MessageSender.sendChatMessage(fileMsg);
-                appendMessage(recipientId, "Вы: отправили файл " + attachFileName);
-                UILogger.debug("Файл " + attachFileName + " отправлен пользователю " + contactsView.getSelectionModel().getSelectedItem().getName());
+                appendMessage(selectedChat.getChatId(), "Вы: отправили файл " + attachFileName);
+                UILogger.debug("Файл " + attachFileName + " отправлен пользователю " + recipient.getName());
 
                 resetAttachedFile();
             } else {
-                SymmetricCipherContext symmetricCipherContext = cipherContexts.get(recipientId);
+                SymmetricCipherContext symmetricCipherContext = cipherContexts.get(chatId);
                 ChatMessage msg = ChatMessage.builder()
+                        .chatId(chatId)
                         .senderId(myId)
-                        .recipientId(recipientId)
+                        .recipientId(recipient.getId())
                         .message(symmetricCipherContext.encrypt(text.getBytes()))
                         .timestamp(LocalDateTime.now().toString())
                         .build();
 
                 MessageSender.sendChatMessage(msg);
-                appendMessage(recipientId, "Вы: " + text);
-                UILogger.debug("Отправлено сообщение: " + text + " пользователю " + contactsView.getSelectionModel().getSelectedItem().getName());
+                appendMessage(chatId, "Вы: " + text);
+                UILogger.debug("Отправлено сообщение: " + text + " пользователю " + recipient.getName());
                 messageField.clear();
             }
         } catch (Exception e) {
@@ -420,7 +532,7 @@ public class ChatController {
     }
 
     private void attachFile() {
-        if (recipientId == null) {
+        if (recipient == null) {
             UILogger.error("Получатель не выбран");
             showAlert(ERR, "Сначала выберите получателя!");
             return;
@@ -451,7 +563,7 @@ public class ChatController {
 
             try {
                 byte[] fileData = Files.readAllBytes(file.toPath());
-                SymmetricCipherContext symmetricCipherContext = cipherContexts.get(recipientId);
+                SymmetricCipherContext symmetricCipherContext = cipherContexts.get(selectedChat.getChatId());
                 this.encryptedFileData = symmetricCipherContext.encrypt(fileData);
                 messageField.setPromptText("Файл: " + file.getName() + " (" + formatFileSize(file.length()) + ")");
                 UILogger.debug("Файл " + file.getName() + " зашифрован");
@@ -471,12 +583,12 @@ public class ChatController {
         if (bytes < 1024) return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(1024));
         String[] units = {"KB", "MB", "GB", "TB"};
-        return String.format("%.1f %s", bytes / Math.pow(1024, exp), units[exp-1]);
+        return String.format("%.1f %s", bytes / Math.pow(1024, exp), units[exp - 1]);
     }
 
     public static byte[] bigIntToUnsignedBytes(BigInteger value) {
         byte[] signed = value.toByteArray();
-        if (signed[0] == 0) {
+        if (signed.length > 1 && signed[0] == 0) {
             return Arrays.copyOfRange(signed, 1, signed.length);
         }
         return signed;

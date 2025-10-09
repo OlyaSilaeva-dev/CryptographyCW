@@ -33,7 +33,6 @@ public class MacGuffinKeyExpansion implements KeyExpansion {
     @Override
     public byte[][] keyExpansion(byte[] key) {
         if (key.length != 16) {
-//            throw new IllegalArgumentException("Key must be 16 bytes long");
             key = to16Bytes(key);
         }
         byte[][] roundKeys = new byte[32][6];
@@ -84,7 +83,7 @@ public class MacGuffinKeyExpansion implements KeyExpansion {
         System.arraycopy(key, 0, key16, 0, len);
         if (len < 16) {
             for (int i = len; i < 16; i++) {
-                key16[i] = 0;  // дополняем нулями
+                key16[i] = 0;
             }
         }
         return key16;

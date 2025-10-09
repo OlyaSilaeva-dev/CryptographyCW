@@ -15,16 +15,15 @@ import static com.cryptography.frontend.apiclient.ApiClientUtils.*;
 public class UsersClient {
 
     private static final String BASE_URL = "http://localhost:8080/api/v1/users";
-    public static List<UserDTO> getUsers(String id) throws Exception {
-
-        String token = SessionManager.getInstance().getToken(id);
+    public static List<UserDTO> getUsers() throws Exception {
+        String token = SessionManager.getInstance().getToken();
         if (token == null) {
             throw new RuntimeException("JWT токен не установлен");
         }
         HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(BASE_URL + "/all"))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", BEARER + token)
                 .GET()
                 .build();
 
