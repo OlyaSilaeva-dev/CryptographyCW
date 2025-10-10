@@ -11,6 +11,7 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 import java.lang.reflect.Type;
+import java.util.Map;
 import java.util.function.Consumer;
 
 @Slf4j
@@ -85,7 +86,7 @@ public class StompClient {
         stompSession.subscribe("/topic/chats/add", new StompFrameHandler() {
             @Override
             public Type getPayloadType(StompHeaders headers) {
-                return NewChatDTO.class;
+                return ChatDTO.class;
             }
 
             @Override
@@ -97,18 +98,19 @@ public class StompClient {
         });
 
         stompSession.subscribe("/topic/chats/delete", new StompFrameHandler() {
-
             @Override
             public Type getPayloadType(StompHeaders headers) {
-                return String.class;
+                return Map.class;
             }
 
             @Override
             public void handleFrame(StompHeaders headers, Object payload) {
-                String chatId = (String) payload;
-                log.info("Чат {} удален", chatId);
+                Map<String, Object> map = (Map<String, Object>) payload;
+                String chatId = (String) map.get("chatId");
+                log.info("Чат {} удалён", chatId);
                 onChatRemoved.accept(chatId);
             }
+
         });
 
         stompSession.subscribe("/topic/user." + userId + "/key-exchange", new StompFrameHandler() {

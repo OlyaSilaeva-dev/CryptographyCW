@@ -19,5 +19,11 @@ public class SessionManager {
     public static SessionManager getInstance() {
         return INSTANCE;
     }
+
+    public void clear() {
+        this.token = null;
+        this.userId = null;
+        this.userName = null;
+    }
 }
 

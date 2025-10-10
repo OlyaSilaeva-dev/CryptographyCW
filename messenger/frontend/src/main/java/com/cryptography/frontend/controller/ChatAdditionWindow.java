@@ -1,5 +1,6 @@
 package com.cryptography.frontend.controller;
 
+import com.cryptography.frontend.algorithms.RC5.RC5;
 import com.cryptography.frontend.algorithms.enums.EncryptionMode;
 import com.cryptography.frontend.algorithms.enums.PaddingMode;
 import com.cryptography.frontend.apiclient.ChatClient;
@@ -17,9 +18,12 @@ import javafx.util.StringConverter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+
+import static javafx.application.Platform.exit;
 
 @Slf4j
 public class ChatAdditionWindow {
@@ -33,8 +37,6 @@ public class ChatAdditionWindow {
     public ComboBox<PaddingMode> paddingModeComboBox;
     @FXML
     public Button chatCreationButton;
-    @FXML
-    public Button exitButton;
 
     @FXML
     private void initialize() {
@@ -95,18 +97,19 @@ public class ChatAdditionWindow {
         });
 
         chatCreationButton.setOnAction(event -> createChat());
-        exitButton.setOnAction(event -> exit());
     }
 
     private void createChat() {
         String myId = SessionManager.getInstance().getUserId();
         String myName = SessionManager.getInstance().getUserName();
+        byte[] iv = generateIV(cipherComboBox.getSelectionModel().getSelectedItem(), encryptionModeComboBox.getSelectionModel().getSelectedItem());
         NewChatDTO newChatDTO = NewChatDTO.builder()
                 .firstUserId(myId)
                 .secondUserId(userComboBox.getSelectionModel().getSelectedItem().getId())
                 .symmetricCipher(cipherComboBox.getSelectionModel().getSelectedItem().toString())
                 .encryptionMode(encryptionModeComboBox.getSelectionModel().getSelectedItem().toString())
                 .paddingMode(paddingModeComboBox.getSelectionModel().getSelectedItem().toString())
+                .iv(iv)
                 .build();
 
         try {
@@ -114,18 +117,37 @@ public class ChatAdditionWindow {
             log.info("Создан новый чат {} - {}", myName, userComboBox.getSelectionModel().getSelectedItem().getName());
             UILogger.info("Создан новый чат " + myName + " - " + userComboBox.getSelectionModel().getSelectedItem().getName());
 
-            exit();
+            this.exit();
         } catch (Exception e) {
             log.error(e.getMessage());
         }
     }
 
     private void exit() {
-        Stage stage = (Stage) exitButton.getScene().getWindow();
+        Stage stage = (Stage) chatCreationButton.getScene().getWindow();
         stage.close();
     }
 
     private void onContactAdded(UserDTO user) {
         userComboBox.getItems().add(user);
     }
+
+    private static byte[] generateIV(SymmetricCipherEnum cipher, EncryptionMode mode) {
+        if (!needsIV(mode)) {
+            return new byte[0];
+        }
+
+        int blockSize = 8;
+        byte[] iv = new byte[blockSize];
+        new SecureRandom().nextBytes(iv);
+        return iv;
+    }
+
+    private static boolean needsIV(EncryptionMode mode) {
+        return switch (mode) {
+            case ECB -> false;
+            default -> true;
+        };
+    }
+
 }

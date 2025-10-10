@@ -15,4 +15,5 @@ public class NewChatDTO {
     private String symmetricCipher;
     private String encryptionMode;
     private String paddingMode;
+    private byte[] iv;
 }

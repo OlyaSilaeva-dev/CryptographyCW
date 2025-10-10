@@ -39,4 +39,7 @@ public class Chat {
     @Column(name = "padding_mode")
     @Enumerated(EnumType.STRING)
     private PaddingMode paddingMode;
+
+    @Column(name = "iv")
+    private byte[] iv;
 }

@@ -44,12 +44,9 @@ public class LoginController {
                 ChatController chatController = loader.getController();
                 chatController.init(id, name);
 
-                Stage stage = new Stage();
+                Stage stage = (Stage) loginButton.getScene().getWindow();
                 stage.setScene(new Scene(root));
                 stage.setTitle("Чат - пользователь: " + name);
-                stage.show();
-
-                ((Stage) loginButton.getScene().getWindow()).close();
             } catch (Exception e) {
                 log.error(e.getMessage());
                 showAlert(ERR, "Не удалось выполнить вход: " + e.getMessage());

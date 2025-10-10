@@ -14,4 +14,5 @@ public class Chat {
     private SymmetricCipher symmetricCipher;
     private EncryptionMode encryptionMode;
     private PaddingMode paddingMode;
+    private byte[] iv;
 }

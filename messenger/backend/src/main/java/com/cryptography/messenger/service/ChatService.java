@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @AllArgsConstructor
@@ -42,6 +43,7 @@ public class ChatService {
                 .symmetricCipher(symmetricCipher)
                 .encryptionMode(encryptionMode)
                 .paddingMode(paddingMode)
+                .iv(newChatDTO.getIv())
                 .build();
 
         chatRepository.save(newChat);
@@ -52,13 +54,15 @@ public class ChatService {
                 .encryptionMode(String.valueOf(encryptionMode))
                 .paddingMode(String.valueOf(paddingMode))
                 .symmetricCipher(String.valueOf(symmetricCipher))
+                .iv(newChatDTO.getIv())
                 .build();
         simpMessagingTemplate.convertAndSend("/topic/chats/add", chatDTO);
     }
 
     public void deleteChat(String chatId) {
         chatRepository.deleteById(Long.parseLong(chatId));
-        simpMessagingTemplate.convertAndSend("/topic/chats/delete", chatId);
+        simpMessagingTemplate.convertAndSend("/topic/chats/delete", Map.of("chatId", chatId));
+
     }
 
     public List<ChatDTO> getChatsByUserId(String userId) {
@@ -85,6 +89,7 @@ public class ChatService {
                         .symmetricCipher(chat.getSymmetricCipher().toString())
                         .encryptionMode(chat.getEncryptionMode().toString())
                         .paddingMode(chat.getPaddingMode().toString())
+                        .iv(chat.getIv())
                         .build())
                 .toList();
     }

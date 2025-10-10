@@ -1,8 +1,5 @@
 package com.cryptography.messenger.dto;
 
-import com.cryptography.messenger.enity.enums.EncryptionMode;
-import com.cryptography.messenger.enity.enums.PaddingMode;
-import com.cryptography.messenger.enity.enums.SymmetricCipherEnum;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,10 +10,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ChatDTO {
-    String chatId;
-    UserDTO firstUser;
-    UserDTO secondUser;
-    String symmetricCipher;
-    String encryptionMode;
-    String paddingMode;
+    private String chatId;
+    private UserDTO firstUser;
+    private UserDTO secondUser;
+    private String symmetricCipher;
+    private String encryptionMode;
+    private String paddingMode;
+    private byte[] iv;
 }

@@ -13,6 +13,7 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.6.0
     container_name: kafka
+    restart: unless-stopped
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -64,6 +65,7 @@ services:
   backend2:
     build: ../backend
     container_name: backend
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:

@@ -64,11 +64,6 @@
       <VBox alignment="TOP_CENTER" prefHeight="74.0" prefWidth="441.0">
          <children>
             <Button fx:id="chatCreationButton" mnemonicParsing="false" prefHeight="25.0" prefWidth="132.0" text="Создать чат" />
-            <Button fx:id="exitButton" mnemonicParsing="false" prefHeight="29.0" prefWidth="133.0" text="Вернуться к чатам">
-               <VBox.margin>
-                  <Insets top="5.0" />
-               </VBox.margin>
-            </Button>
          </children>
       </VBox>
    </children>

@@ -326,6 +326,7 @@ public class ChatController {
         addChatButton.setOnAction(e -> openChatAdditionWindow());
         sendButton.setOnAction(event -> send(myId));
         attachButton.setOnAction(event -> attachFile());
+        exitButton.setOnAction(event -> handleExit());
     }
 
     private void deleteChat(ChatDTO chatDTO) {
@@ -420,7 +421,7 @@ public class ChatController {
                 bigIntToUnsignedBytes(sharedSecret),
                 EncryptionMode.valueOf(chat.getEncryptionMode()),
                 PaddingMode.valueOf(chat.getPaddingMode()),
-                new byte[0]
+                chat.getIv()
         );
     }
 
@@ -465,6 +466,7 @@ public class ChatController {
 
                 resetAttachedFile();
             } else {
+                if (text.isEmpty()) return;
                 SymmetricCipherContext symmetricCipherContext = cipherContexts.get(chatId);
                 ChatMessage msg = ChatMessage.builder()
                         .chatId(chatId)
@@ -547,12 +549,9 @@ public class ChatController {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Выберите файл для отправки");
 
-        FileChooser.ExtensionFilter allFiles = new FileChooser.ExtensionFilter("Все файлы", "*.*");
-        FileChooser.ExtensionFilter images = new FileChooser.ExtensionFilter("Изображения", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp");
-        FileChooser.ExtensionFilter documents = new FileChooser.ExtensionFilter("Документы", "*.pdf", "*.doc", "*.docx", "*.txt", "*.rtf");
-        FileChooser.ExtensionFilter archives = new FileChooser.ExtensionFilter("Архивы", "*.zip", "*.rar", "*.7z");
-
-        fileChooser.getExtensionFilters().addAll(images, documents, archives, allFiles);
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Все файлы", "*.*")
+        );
 
         Stage stage = (Stage) attachButton.getScene().getWindow();
         File file = fileChooser.showOpenDialog(stage);
@@ -576,6 +575,22 @@ public class ChatController {
                 UILogger.error("Ошибка шифрования: " + e.getMessage());
                 resetAttachedFile();
             }
+        }
+    }
+
+    private void handleExit() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/cryptography/frontend/login.fxml"));
+            Parent root = loader.load();
+
+            SessionManager.getInstance().clear();
+
+            Stage stage = (Stage) exitButton.getScene().getWindow();
+            stage.setScene(new Scene(root));
+            stage.setTitle("Login Page");
+        } catch (IOException e) {
+            e.printStackTrace();
+            UILogger.error("Не удалось перейти на окно авторизации: " + e.getMessage());
         }
     }
 

@@ -10,10 +10,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ChatDTO {
-    String chatId;
-    UserDTO firstUser;
-    UserDTO secondUser;
-    String symmetricCipher;
-    String encryptionMode;
-    String paddingMode;
+    private String chatId;
+    private UserDTO firstUser;
+    private UserDTO secondUser;
+    private String symmetricCipher;
+    private String encryptionMode;
+    private String paddingMode;
+    private byte[] iv;
 }
